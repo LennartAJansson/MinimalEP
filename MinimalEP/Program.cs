@@ -1,0 +1,62 @@
+using Asp.Versioning;
+using Asp.Versioning.Builder;
+
+using Scalar.AspNetCore;
+
+using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
+using MinimalEP.Infrastructure.Data.Core;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services
+  .AddApiVersioning(options =>
+  {
+    options.DefaultApiVersion = new ApiVersion(1);
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+  })
+  .AddApiExplorer(options =>
+  {
+    options.GroupNameFormat = "'v'V";
+    options.SubstituteApiVersionInUrl = true;
+  });
+
+builder.Services
+  .AddEndpoints(typeof(Program))
+  .AddApplicationData(builder.Configuration)
+  .AddApplicationAuth(builder.Configuration)
+  .AddJwtOpenApi();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+  app.MapOpenApi();
+  app.MapScalarApiReference(options =>
+  {
+    options.WithTitle("MinimalEP API")
+           .WithTheme(ScalarTheme.DeepSpace)
+           .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+  });
+}
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+
+ApiVersionSet apiVersionSet = app.NewApiVersionSet()
+    .HasApiVersion(new ApiVersion(1))
+    .ReportApiVersions()
+    .Build();
+
+RouteGroupBuilder versionedGroup = app
+    .MapGroup("api/v{version:apiVersion}")
+    .WithApiVersionSet(apiVersionSet)
+    .RequireAuthorization();
+
+// Auth-routes får inte kräva authorization
+app.MapEndpoints(versionedGroup);
+
+app.Run();
