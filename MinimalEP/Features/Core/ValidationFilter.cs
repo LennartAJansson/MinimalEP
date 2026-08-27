@@ -9,7 +9,7 @@ public class ValidationFilter<TRequest>
 {
   public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
   {
-    // 1. Hitta argumentet som matchar TRequest
+    // 1. Find the argument matching TRequest
     var request = context.Arguments.FirstOrDefault(x => x is TRequest) as TRequest;
 
     if (request is null)
@@ -17,23 +17,23 @@ public class ValidationFilter<TRequest>
       return await next(context);
     }
 
-    // 2. Hämta rätt validator från DI-behållaren via HttpContext 
+    // 2. Resolve the validator for TRequest from DI
     var httpContext = context.HttpContext;
     var validator = httpContext.RequestServices.GetService<IValidator<TRequest>>();
 
-    // 3. Om det finns en validator för detta objekt, kör den!
+    // 3. Run validation if a validator is registered
     if (validator is not null)
     {
       var validationResult = await validator.ValidateAsync(request, httpContext.RequestAborted);
 
       if (!validationResult.IsValid)
       {
-        // Returnerar ett färdigt HTTP 400 Bad Request med FluentValidations felmeddelanden
+        // Return HTTP 400 Bad Request with FluentValidation error details
         return Results.ValidationProblem(validationResult.ToDictionary());
       }
     }
 
-    // Allt ok! Gå vidare till nästa steg i pipelinen (din Handler)
+    // Validation passed — continue to the next step in the pipeline
     return await next(context);
   }
 }

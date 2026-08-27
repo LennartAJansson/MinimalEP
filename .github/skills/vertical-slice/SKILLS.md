@@ -98,15 +98,25 @@ public class AddCustomerEndpoint : IEndpoint
 }
 ```
 
-## HTTP Status-konventioner
-| Operation  | Lyckat        | Saknas       | Konflikt     |
-|------------|---------------|--------------|--------------|
-| POST       | 201 Created   | —            | 409 Conflict |
-| GET (ett)  | 200 Ok        | 404 NotFound | —            |
-| GET (lista)| 200 Ok        | —            | —            |
-| PUT/PATCH  | 200 Ok        | 404 NotFound | 409 Conflict |
-| DELETE     | 204 NoContent | 404 NotFound | —            |
+## HTTP Status conventions
+| Operation   | Success       | Not found    | Conflict     |
+|-------------|---------------|--------------|--------------|
+| POST        | 201 Created   | —            | 409 Conflict |
+| GET (single)| 200 Ok        | 404 NotFound | —            |
+| GET (list)  | 200 Ok        | —            | —            |
+| PUT/PATCH   | 200 Ok        | 404 NotFound | 409 Conflict |
+| DELETE      | 204 NoContent | 404 NotFound | —            |
 
-## Viktigt
-- Returnera alltid till en `IResult`-variabel före `return` — löser delegate-tvetydighet med `TypedResults`
-- Auth-endpoints: lägg `.AllowAnonymous()` direkt på `MapPost(...)` — överstyr gruppens `RequireAuthorization()`
+## Slices are not CRUD
+Vertical slice is about **use cases**, not entities. A slice models what a user needs to do — not what the database looks like. Examples alongside standard CRUD:
+
+- `StopWorkload` — PATCH that stamps a stop time; domain operation, not a generic update
+- `InvoiceWorkloads` — could span multiple aggregates and involve complex business logic
+- `ArchiveCustomer` — soft-delete with side effects, not a plain DELETE
+
+Each slice has exactly the complexity it needs, without affecting any other slice.
+
+## Important
+- Always assign to an `IResult` variable before `return` — resolves delegate ambiguity with `TypedResults`
+- Auth endpoints: add `.AllowAnonymous()` directly on the route method — overrides the group's `RequireAuthorization()`
+- Never do an unsafe cast `((Result<T>.Ok)result).Value` — use a `switch` pattern with `UnreachableException` in the `_` arm

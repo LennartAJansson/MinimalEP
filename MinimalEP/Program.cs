@@ -21,7 +21,8 @@ builder.Services
   {
     options.GroupNameFormat = "'v'V";
     options.SubstituteApiVersionInUrl = true;
-  });
+  })
+  .AddOpenApi();
 
 builder.Services
   .AddEndpoints(typeof(Program))
@@ -33,7 +34,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-  app.MapOpenApi();
+  app.MapOpenApi().WithDocumentPerVersion();
   app.MapScalarApiReference(options =>
   {
     options.WithTitle("MinimalEP API")
@@ -56,7 +57,7 @@ RouteGroupBuilder versionedGroup = app
     .WithApiVersionSet(apiVersionSet)
     .RequireAuthorization();
 
-// Auth-routes får inte kräva authorization
+// Auth routes override authorization via AllowAnonymous on each endpoint
 app.MapEndpoints(versionedGroup);
 
 app.Run();

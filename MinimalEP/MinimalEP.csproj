@@ -5,9 +5,14 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UserSecretsId>d22b4fbd-5f2e-4624-a89c-4f87b805310a</UserSecretsId>
+		<Description>MinimalEP — Minimal API template using Vertical Slice Architecture</Description>
+		<!-- AV0029 is reported by the OpenAPI source generator's own generated file when
+			 Asp.Versioning.OpenApi is used. Our code is correct; this suppresses the false positive. -->
+		<NoWarn>$(NoWarn);AV0029</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Asp.Versioning.OpenApi" Version="10.2.3" />
 		<PackageReference Include="Dapper" Version="2.1.79" />
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />

@@ -12,10 +12,10 @@ public static class EndpointExtensions
   {
     public IServiceCollection AddEndpoints(Type type)
     {
-      // 1. Registrera alla FluentValidation-validators automatiskt
+      // 1. Auto-register all FluentValidation validators
       services.AddValidatorsFromAssemblyContaining(type);
 
-      // 2. Registrera alla IRequestHandler automatiskt
+      // 2. Auto-register all IRequestHandler implementations
       var handlerDescriptors = type.Assembly
         .DefinedTypes
         .Where(type => type is { IsInterface: false, IsAbstract: false })
@@ -29,7 +29,7 @@ public static class EndpointExtensions
         services.Add(descriptor);
       }
 
-      // 3.Registrera alla IEndpoint-implementeringar automatiskt
+      // 3. Auto-register all IEndpoint implementations
       ServiceDescriptor[] endpointDescriptors = type.Assembly
           .DefinedTypes
           .Where(type => type is { IsInterface: false, IsAbstract: false } &&
@@ -41,12 +41,12 @@ public static class EndpointExtensions
       return services;
     }
   }
+
   extension(WebApplication application)
   {
     public WebApplication MapEndpoints(RouteGroupBuilder? routeGroupBuilder = null)
     {
       using var scope = application.Services.CreateScope();
-      var sp = scope.ServiceProvider;
 
       IEnumerable<IEndpoint> endpoints = scope.ServiceProvider
           .GetRequiredService<IEnumerable<IEndpoint>>();
@@ -57,36 +57,33 @@ public static class EndpointExtensions
 
       foreach (IEndpoint endpoint in endpoints)
       {
-        // 1. Mappa endpointen och fånga upp konventionerna
+        // Map the endpoint and capture the convention builder
         var conventionBuilder = endpoint.MapEndpoint(builder);
 
-        // 2. Hitta vilken typ av RequestHandler denna endpoint använder via reflektion
-        var endpointType = endpoint.GetType();
+        // Locate the IRequestHandler<TRequest,TResponse> interface that lives in the
+        // same namespace as the endpoint — this ensures each endpoint gets its own
+        // ValidationFilter<TRequest>, not one picked arbitrarily from the assembly.
+        var endpointNamespace = endpoint.GetType().Namespace;
 
-        // Vi letar efter metoder eller fält, men det absolut säkraste och enklaste sättet 
-        // är att titta på vilka IRequestHandler som finns i projektet som matchar endpointens logik.
-        // Ett ännu smidigare sätt är att titta på det gränssnitt endpointen har, 
-        // eller skanna endpoint-klassens generiska parametrar om du i framtiden gör den generisk.
-
-        // För att göra det helt automatiskt baserat på din nuvarande struktur:
-        var handlerInterface = endpointType.Assembly.DefinedTypes
-            .Where(t => t is { IsInterface: false, IsAbstract: false })
+        var handlerInterface = endpoint.GetType().Assembly.DefinedTypes
+            .Where(t => t is { IsInterface: false, IsAbstract: false } &&
+                        t.Namespace == endpointNamespace)
             .SelectMany(t => t.ImplementedInterfaces)
-            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>));
+            .FirstOrDefault(i => i.IsGenericType &&
+                                 i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>));
+
         if (handlerInterface is not null)
         {
-          // Hämta ut TRequest (första generiska argumentet från IRequestHandler<TRequest, TResponse>)
+          // Extract TRequest (first generic argument of IRequestHandler<TRequest, TResponse>)
           var requestType = handlerInterface.GetGenericArguments()[0];
 
-          // Bygg typen för vårt generiska filter: ValidationFilter<TRequest>
+          // Build the closed generic ValidationFilter<TRequest>
           var filterType = typeof(ValidationFilter<>).MakeGenericType(requestType);
 
-          // Lägg till filtret i efterhand på denna endpoint helt automatiskt!
           conventionBuilder.Add(endpointBuilder =>
           {
-            endpointBuilder.FilterFactories.Add((factoryContext, next) =>
+            endpointBuilder.FilterFactories.Add((_, next) =>
             {
-              // Skapa en instans av filtret - ValidationFilter har inga dependencies så vi kan skapa direkt
               var filter = (IEndpointFilter)Activator.CreateInstance(filterType)!;
               return invocationContext => filter.InvokeAsync(invocationContext, next);
             });

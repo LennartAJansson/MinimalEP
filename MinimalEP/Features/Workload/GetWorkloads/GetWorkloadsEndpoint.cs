@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Workload.GetWorkloads;
 
+using System.Diagnostics;
+
 using MinimalEP.Features.Core;
 
 public class GetWorkloadsEndpoint : IEndpoint
@@ -13,7 +15,13 @@ public class GetWorkloadsEndpoint : IEndpoint
       CancellationToken cancellationToken) =>
     {
       var result = await handler.HandleAsync(new GetWorkloadsRequest(customerId, employeeId), cancellationToken);
-      return TypedResults.Ok(((Result<GetWorkloadsResponse>.Ok)result).Value);
+
+      IResult httpResult = result switch
+      {
+        Result<GetWorkloadsResponse>.Ok ok => TypedResults.Ok(ok.Value),
+        _ => throw new UnreachableException()
+      };
+      return httpResult;
     });
   }
 }

@@ -4,6 +4,7 @@ using System.Text;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 
 using MinimalEP.Domain.Model;
@@ -64,10 +65,12 @@ public static class AuthExtensions
 
   extension(IServiceCollection services)
   {
-    // Registrerar Bearer-security i OpenAPI-dokumentet så Scalar visar lås-knappen
+    // Registers the Bearer security scheme on all OpenAPI documents so Scalar shows the lock button.
+    // Uses ConfigureAll to avoid calling AddOpenApi() again — that is already done
+    // via AddApiVersioning().AddOpenApi() in Program.cs (suppresses AV0029).
     public IServiceCollection AddJwtOpenApi()
     {
-      services.AddOpenApi(options =>
+      services.ConfigureAll<OpenApiOptions>(options =>
       {
         options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
       });

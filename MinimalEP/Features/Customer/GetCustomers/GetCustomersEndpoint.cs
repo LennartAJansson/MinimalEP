@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Customer.GetCustomers;
 
+using System.Diagnostics;
+
 using MinimalEP.Features.Core;
 
 public class GetCustomersEndpoint
@@ -12,7 +14,13 @@ public class GetCustomersEndpoint
       CancellationToken cancellationToken) =>
     {
       var result = await handler.HandleAsync(new GetCustomersRequest(), cancellationToken);
-      return TypedResults.Ok(((Result<GetCustomersResponse>.Ok)result).Value);
+
+      IResult httpResult = result switch
+      {
+        Result<GetCustomersResponse>.Ok ok => TypedResults.Ok(ok.Value),
+        _ => throw new UnreachableException()
+      };
+      return httpResult;
     });
   }
 }

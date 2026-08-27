@@ -13,33 +13,32 @@ public static class DbExtensions
   {
     public IServiceCollection AddApplicationData(IConfiguration configuration)
     {
-      // 1. Registrera användarkontexten för HTTP-anrop
+      // 1. Register user context for HTTP requests
       services.AddHttpContextAccessor();
       services.AddScoped<IUserContext, HttpUserContext>();
       services.AddScoped<ICustomerRepository, CustomerRepository>();
       services.AddScoped<IEmployeeRepository, EmployeeRepository>();
       services.AddScoped<IWorkloadRepository, WorkloadRepository>();
 
-      // Dapper connection factory – Singleton eftersom den bara håller connection string
+      // Dapper connection factory — Singleton because it only holds a connection string
       services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 
-      // 2. Registrera vår interceptor som Singleton (IHttpContextAccessor är singleton
-      //    och läser användardata per anrop via HttpContext)
+      // 2. Register the interceptor as Singleton (IHttpContextAccessor is also Singleton
+      //    and reads per-request user data from HttpContext)
       services.AddSingleton<AuditAndSoftDeleteInterceptor>();
 
-      // 3. Registrera vår DbContext med pooling och interceptors
+      // 3. Register DbContext with pooling and interceptors
       services.AddDbContextPool<ApplicationDbContext>((sp, options) =>
       {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        // Hämta vår Singleton interceptor – säkert att lösa från root provider
+        // Resolve Singleton interceptor — safe to resolve from the root provider
         var auditInterceptor = sp.GetRequiredService<AuditAndSoftDeleteInterceptor>();
         options.AddInterceptors(auditInterceptor);
 
         options.UseSqlServer(connectionString);
 
 #if DEBUG
-        // Bra för utveckling, men stängs av automatiskt i produktion för prestanda
         options.EnableSensitiveDataLogging();
 #endif
       });

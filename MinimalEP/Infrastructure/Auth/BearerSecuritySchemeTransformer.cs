@@ -35,12 +35,20 @@ public sealed class BearerSecuritySchemeTransformer(
       [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     };
 
-    // Lägg på security-krav på alla operationer
-    foreach (var path in document.Paths.Values)
+    // Add security requirement to every operation
+    if (document.Paths is not { } paths)
+      return;
+
+    foreach (var path in paths.Values)
+    {
+      if (path.Operations is null)
+        continue;
+
       foreach (var operation in path.Operations.Values)
       {
         operation.Security ??= [];
         operation.Security.Add(securityRequirement);
       }
+    }
   }
 }
