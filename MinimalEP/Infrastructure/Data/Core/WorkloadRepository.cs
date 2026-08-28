@@ -14,14 +14,15 @@ public class WorkloadRepository(ApplicationDbContext context, IDbConnectionFacto
   : IWorkloadRepository
 {
   // Dapper mappar platta kolumner — navigationsegenskaperna Customer och Employee
-  // populeras manuellt via multi-mapping.
+  // populeras manuellt via multi-mapping. Employee.Address (owned type) is intentionally
+  // not selected here — this query only needs the employee's name for display purposes.
   private const string BaseSelect = """
     SELECT
       w.Id, w.CustomerId, w.EmployeeId, w.Start, w.Stop, w.Comments,
       w.Created, w.CreatedBy, w.Updated, w.UpdatedBy, w.Deleted, w.DeletedBy,
       c.Id, c.Name, c.Email,
       c.Created, c.CreatedBy, c.Updated, c.UpdatedBy, c.Deleted, c.DeletedBy,
-      e.Id, e.Name, e.Age, e.Position,
+      e.Id, e.GivenName, e.Surname, e.Age, e.Position,
       e.Created, e.CreatedBy, e.Updated, e.UpdatedBy, e.Deleted, e.DeletedBy
     FROM Workloads w
     INNER JOIN Customers c ON c.Id = w.CustomerId

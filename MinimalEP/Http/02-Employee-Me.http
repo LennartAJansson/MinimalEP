@@ -1,0 +1,84 @@
+@MinimalEP_HostAddress = http://localhost:5284
+@baseUrl = {{MinimalEP_HostAddress}}/api/v1
+
+### ============================================================
+### PREREQUISITE: Login to obtain a token (run 01-Auth.http first,
+### or run this login to get a fresh token for this file's chain)
+### ============================================================
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!"
+}
+
+@accessToken = {{login.response.body.accessToken}}
+
+### ============================================================
+### SCENARIO: Get my own profile via /me
+### ============================================================
+
+# @name getMe
+GET {{baseUrl}}/me
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — the caller's own Employee profile (GivenName, Surname, Address, ...)
+
+### ============================================================
+### SCENARIO: Update my own profile via /me (self-service, no Id needed)
+### ============================================================
+
+PUT {{baseUrl}}/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "givenName": "Super",
+  "surname": "Adminsson",
+  "age": 41,
+  "position": "Chief Technology Officer",
+  "phoneNumber": "+46709999999",
+  "street": "Drottninggatan 5",
+  "postalCode": "11151",
+  "city": "Stockholm"
+}
+
+### Expect: 200 Ok — updated profile reflects the new Surname/Position/Address
+
+### ============================================================
+### SCENARIO: Calling /me without a token -> 401
+### ============================================================
+
+GET {{baseUrl}}/me
+
+### Expect: 401 Unauthorized
+
+### ============================================================
+### SCENARIO: Admin/Employee endpoints — list & fetch by id
+### ============================================================
+
+# @name getEmployees
+GET {{baseUrl}}/employees
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — list of employees (includes the self-registered SuperAdmin)
+
+@firstEmployeeId = {{getEmployees.response.body.items[0].id}}
+
+# @name getEmployeeById
+GET {{baseUrl}}/employees/{{firstEmployeeId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — the same employee, fetched directly by id
+
+### ============================================================
+### SCENARIO: Fetch a non-existent employee -> 404
+### ============================================================
+
+GET {{baseUrl}}/employees/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+### Expect: 404 NotFound

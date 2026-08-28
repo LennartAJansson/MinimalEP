@@ -19,6 +19,7 @@ public static class DbExtensions
       services.AddScoped<ICustomerRepository, CustomerRepository>();
       services.AddScoped<IEmployeeRepository, EmployeeRepository>();
       services.AddScoped<IWorkloadRepository, WorkloadRepository>();
+      services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
       // Dapper connection factory — Singleton because it only holds a connection string
       services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();

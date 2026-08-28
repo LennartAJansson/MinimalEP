@@ -6,7 +6,6 @@ using Scalar.AspNetCore;
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 using MinimalEP.Infrastructure.Data.Core;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
@@ -31,6 +30,11 @@ builder.Services
   .AddJwtOpenApi();
 
 var app = builder.Build();
+
+// Creates the database and applies any pending migrations automatically on startup —
+// no manual `dotnet ef database update` needed for local/demo scenarios.
+await RoleSeeder.MigrateDatabaseAsync(app.Services);
+await RoleSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

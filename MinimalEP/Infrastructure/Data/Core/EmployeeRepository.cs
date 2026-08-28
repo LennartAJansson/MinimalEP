@@ -13,6 +13,24 @@ using MinimalEP.Infrastructure.Data.Context;
 public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFactory connectionFactory)
   : IEmployeeRepository
 {
+  // Dapper can't populate an owned-type navigation property (Address) via a single flat
+  // mapping, so the query is split into Employee + Address parts and stitched together
+  // manually, the same multi-mapping technique used for Workload's Customer/Employee.
+  private const string BaseSelect = """
+    SELECT
+      Id, Email, GivenName, Surname, Age, Position, PhoneNumber,
+      Created, CreatedBy, Updated, UpdatedBy, Deleted, DeletedBy,
+      Address_Street AS Street, Address_PostalCode AS PostalCode, Address_City AS City
+    FROM Employees
+    WHERE Deleted IS NULL
+    """;
+
+  private static Employee Map(Employee e, Address a)
+  {
+    e.Address = a;
+    return e;
+  }
+
   // --- Läsoperationer via Dapper ---
 
   public async Task<Employee?> GetByIdAsync(Guid id, CancellationToken cancellationToken, bool tracked = false)
@@ -24,16 +42,20 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
     }
 
     using IDbConnection db = connectionFactory.CreateConnection();
-    return await db.QuerySingleOrDefaultAsync<Employee>(
-      "SELECT * FROM Employees WHERE Id = @Id AND Deleted IS NULL",
-      new { Id = id });
+    var result = await db.QueryAsync<Employee, Address, Employee>(
+      $"{BaseSelect} AND Id = @Id",
+      Map,
+      new { Id = id },
+      splitOn: "Street");
+
+    return result.SingleOrDefault();
   }
 
   public async Task<IReadOnlyList<Employee>> GetAllAsync(CancellationToken cancellationToken)
   {
     using IDbConnection db = connectionFactory.CreateConnection();
-    var result = await db.QueryAsync<Employee>(
-      "SELECT * FROM Employees WHERE Deleted IS NULL");
+    var result = await db.QueryAsync<Employee, Address, Employee>(
+      BaseSelect, Map, splitOn: "Street");
     return result.AsList();
   }
 

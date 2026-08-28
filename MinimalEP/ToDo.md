@@ -1,7 +1,7 @@
-﻿Left ToDo:
-Implement MS Identity so it can be used for authentication and authorization in the application. This includes setting up user registration, login and refreshtoken. It should use jwttoken and refreshtoken.
-Implement Employee class with properties for Name, Age, and Position. 
-Implement Workload class with properties for CustomerId, EmployeeId, Start, Stop and Comments.
-Make sure User will be used in interceptor as replacement for EmployeeId in Workload class. User should be used in the interceptor to set the EmployeeId in Workload class, but also as value for CreatedBy, UpdatedBy and DeletedBy in the three entities Customer, Employee and Workload.
-Maybe switch to dapper for read operations for better performance and simplicity (Separation of Concerns).
-Create a set of skills for this kind of pattern, covering minimal api with vertical slice according to this template.
+﻿Fundera kring följande förbättringar och kom med ideer/tankar samt en plan/förslag för implementation:
+Kanske arbeta bort Employee och konsolidera denna entitet till AspNetUsers.
+Införa roles i MsIdentity så man kan särskilja mellan olika typer av användare (t.ex. Admin, Employee, Customer) utan att behöva en separat Employee-entitet.
+Utöka scenario med att admin ska kunna redigera andra användares information, t.ex. ändra roller, resetta lösenord, etc.
+Admin bör även kunna lista användares arbetade timmar och annan relevant information.
+Tänk typ ett enkelt tidsrapporteringssystem...Admin skapar kunder och anställda, anställda loggar timmar mot kunder, admin kan se rapporter. Typ så, kom med input om olika scenarios som du ser...
+I dessa olika scenarios vill jag att du tänker utifrån kända patterns & practices, hur dessa kan färga denna kod och visa på vikten av att använda en välskriven kod med hjälp av abstraktioner, OOP, SOLID, Clean Code, Clean Architecture och GoF design patterns. Ett skolboksexempel helt enkelt, som visar på varför vi bör använda dessa metoder när vi utvecklar system.

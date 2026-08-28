@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 
+using MinimalEP.Domain.Core;
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Data.Context;
@@ -41,6 +42,11 @@ public static class AuthExtensions
         })
         .AddJwtBearer(options =>
         {
+          // Keep claim types as issued (e.g. "sub") instead of mapping them to legacy
+          // WS-Federation claim URIs (e.g. ClaimTypes.NameIdentifier). Must match the
+          // MapInboundClaims setting used everywhere else tokens are read (see
+          // RefreshTokenHandler and .github/Skills/identity-jwt-auth).
+          options.MapInboundClaims = false;
           options.TokenValidationParameters = new TokenValidationParameters
           {
             ValidateIssuer = true,
@@ -54,7 +60,9 @@ public static class AuthExtensions
           };
         });
 
-      services.AddAuthorization();
+      services.AddAuthorizationBuilder()
+        .AddPolicy("SuperAdminOnly", p => p.RequireRole(Roles.SuperAdmin))
+        .AddPolicy("AdminOrAbove", p => p.RequireRole(Roles.SuperAdmin, Roles.Admin));
 
       // 3. Token-tjänst
       services.AddScoped<ITokenService, JwtTokenService>();

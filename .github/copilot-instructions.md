@@ -169,9 +169,11 @@ To set `CreatedBy` when no JWT exists (e.g. registration), set it explicitly bef
 
 ## Auth — Identity + JWT
 
-- `ApplicationUser : IdentityUser<Guid>` with `RefreshToken` + `RefreshTokenExpiry`
+- `ApplicationUser : IdentityUser<Guid>` — no refresh-token fields; refresh tokens live in a dedicated `RefreshToken` entity/table (`IRefreshTokenRepository`), hashed (SHA-256), supporting multi-device sessions, revocation, and reuse detection
 - `ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>`
-- JWT claims: `sub` (UserId), `email`, `jti`, roles
+- `Employee.Email` mirrors `ApplicationUser.Email` (set at registration) — `ApplicationUser.Email` remains the source of truth for login
+- JWT claims: `sub` (UserId), `email` (from `ApplicationUser`), `jti`, `name`/`age`/`position` (from `Employee`), roles
+- `ITokenService.GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles)` requires both entities to build claims
 - `Register` creates both `ApplicationUser` and `Employee` with the same `Id`
 - Auth endpoints (`/auth/register`, `/auth/login`, `/auth/refresh`) use `.AllowAnonymous()`
 - All other endpoints require authorization via `RouteGroupBuilder.RequireAuthorization()`
@@ -208,3 +210,25 @@ public class BaseEntity
 `ApplicationUser.Id == Employee.Id` by design.
 The interceptor uses `UserId` (from `sub` claim) as both the audit identity and `Workload.EmployeeId`.
 `IUserContext.UserId` is the single source of truth — no separate `EmployeeId` claim needed.
+
+---
+
+## Workload — Punch Clock Convention
+
+`Workload` follows a punch-clock model: two distinct slices, not a generic Add/Update.
+
+- `StartWorkload` (`POST /workloads/start`) — request only carries `Start` (no `Stop`), so an already-closed time entry cannot be represented through this endpoint. `EmployeeId` is always taken from `IUserContext.UserId`, never from the client.
+- `StopWorkload` (`PATCH /workloads/{id}/stop`) — the only slice allowed to set `Stop`.
+- Domain invariant: an employee may not have more than one open workload (`Stop == null`) at a time — `StartWorkloadHandler` checks this via `IWorkloadRepository.GetByEmployeeAsync` and returns `409 Conflict` if violated.
+- Ownership scoping applies to `Get/GetAll/Update/Stop/Delete`: plain `User` role is restricted to their own `EmployeeId`; `Admin`/`SuperAdmin` are not.
+
+---
+
+## Employee — Profile Fields & Self-Service
+
+`Employee` carries `GivenName`, `Surname`, `Age`, `Position`, `PhoneNumber`, and an owned `Address` (`Street`/`PostalCode`/`City`).
+`Name` is a computed property (`$"{GivenName} {Surname}"`), never persisted — mappings, responses, and JWT claims use it for convenience but the source of truth is `GivenName`/`Surname`.
+
+- `Address` is an EF Core **owned type** (`builder.OwnsOne`), stored inline on the `Employees` table as `Address_Street`/`Address_PostalCode`/`Address_City` — no separate table/repository, equality by value (DDD value object).
+- Dapper cannot map an owned-type navigation directly: `EmployeeRepository` uses multi-mapping (`QueryAsync<Employee, Address, Employee>`, `splitOn: "Street"`) with aliased columns, mirroring the pattern used by `WorkloadRepository` for `Customer`/`Employee`.
+- `/me` (`Features/Employee/Me`) is a self-service slice: `GetMeRequest`/`UpdateMeRequest` never take an `Id` from the client — the handler resolves the caller's own `Employee` exclusively via `IUserContext.UserId`, preventing IDOR/broken object-level authorization. Any authenticated user (any role) may call `/me`.

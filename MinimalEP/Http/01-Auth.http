@@ -1,0 +1,128 @@
+@MinimalEP_HostAddress = http://localhost:5284
+@baseUrl = {{MinimalEP_HostAddress}}/api/v1
+
+### ============================================================
+### SCENARIO: Register the first user (becomes SuperAdmin+Admin+User)
+### ============================================================
+
+# @name registerFirstUser
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!",
+  "givenName": "Super",
+  "surname": "Admin",
+  "age": 40,
+  "position": "CTO",
+  "phoneNumber": "+46701234567",
+  "street": "Kungsgatan 1",
+  "postalCode": "11143",
+  "city": "Stockholm"
+}
+
+### Expect: 201 Created — first registered user is granted SuperAdmin + Admin + User
+
+### ============================================================
+### SCENARIO: Registering the same email again -> 409 Conflict
+### ============================================================
+
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!",
+  "givenName": "Super",
+  "surname": "Admin",
+  "age": 40,
+  "position": "CTO",
+  "phoneNumber": "+46701234567",
+  "street": "Kungsgatan 1",
+  "postalCode": "11143",
+  "city": "Stockholm"
+}
+
+### Expect: 409 Conflict — "A user with email 'superadmin@example.com' already exists."
+
+### ============================================================
+### SCENARIO: Login as the SuperAdmin and capture tokens
+### ============================================================
+
+# @name loginSuperAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!"
+}
+
+### Expect: 200 Ok — { accessToken, refreshToken, expiry }
+
+@superAdminAccessToken = {{loginSuperAdmin.response.body.accessToken}}
+@superAdminRefreshToken = {{loginSuperAdmin.response.body.refreshToken}}
+
+### ============================================================
+### SCENARIO: Login with wrong password -> 401/409 depending on handler
+### ============================================================
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "WrongPassword!"
+}
+
+### Expect: 401 Unauthorized — invalid credentials
+
+### ============================================================
+### SCENARIO: Refresh the access token using the refresh token
+### ============================================================
+
+# @name refreshTokens
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "accessToken": "{{superAdminAccessToken}}",
+  "refreshToken": "{{superAdminRefreshToken}}"
+}
+
+### Expect: 200 Ok — new accessToken + refreshToken pair (rotation)
+
+@rotatedAccessToken = {{refreshTokens.response.body.accessToken}}
+@rotatedRefreshToken = {{refreshTokens.response.body.refreshToken}}
+
+### ============================================================
+### SCENARIO: Reusing the OLD (already rotated) refresh token -> should fail
+### ============================================================
+
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "accessToken": "{{superAdminAccessToken}}",
+  "refreshToken": "{{superAdminRefreshToken}}"
+}
+
+### Expect: Conflict — reused/revoked refresh token detected
+
+### ============================================================
+### SCENARIO: Calling a protected endpoint WITHOUT a token -> 401
+### ============================================================
+
+GET {{baseUrl}}/employees
+
+### Expect: 401 Unauthorized
+
+### ============================================================
+### SCENARIO: Calling a protected endpoint WITH a valid token -> 200
+### ============================================================
+
+GET {{baseUrl}}/employees
+Authorization: Bearer {{rotatedAccessToken}}
+
+### Expect: 200 Ok — list of employees

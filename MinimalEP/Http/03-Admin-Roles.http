@@ -1,0 +1,138 @@
+@MinimalEP_HostAddress = http://localhost:5284
+@baseUrl = {{MinimalEP_HostAddress}}/api/v1
+
+### ============================================================
+### PREREQUISITE: Login as SuperAdmin
+### ============================================================
+
+# @name loginSuperAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!"
+}
+
+@superAdminToken = {{loginSuperAdmin.response.body.accessToken}}
+
+### ============================================================
+### SCENARIO: SuperAdmin creates a new Admin account
+### ============================================================
+
+# @name createAdminAccount
+POST {{baseUrl}}/admin/employees
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "givenName": "Alice",
+  "surname": "Adminsdottir",
+  "age": 35,
+  "position": "Office Manager",
+  "phoneNumber": "+46701111111",
+  "street": "Storgatan 2",
+  "postalCode": "41103",
+  "city": "Göteborg",
+  "role": "Admin"
+}
+
+### Expect: 201 Created — includes a passwordResetToken (demo only, would normally be emailed)
+
+@adminUserId = {{createAdminAccount.response.body.userId}}
+@adminResetToken = {{createAdminAccount.response.body.passwordResetToken}}
+
+### ============================================================
+### SCENARIO: SuperAdmin creates a regular User account
+### ============================================================
+
+# @name createUserAccount
+POST {{baseUrl}}/admin/employees
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "givenName": "Ulf",
+  "surname": "User",
+  "age": 28,
+  "position": "Consultant",
+  "phoneNumber": "+46702222222",
+  "street": "Vasagatan 10",
+  "postalCode": "21121",
+  "city": "Malmö",
+  "role": "User"
+}
+
+@regularUserId = {{createUserAccount.response.body.userId}}
+
+### ============================================================
+### SCENARIO: Plain Admin attempts to create another Admin -> 409 Conflict
+### (Only SuperAdmin may create Admin/SuperAdmin accounts)
+### ============================================================
+### First: log in as the Admin created above (requires a real password —
+### in a real flow the Admin would call /auth/reset-password with adminResetToken
+### before logging in; this scenario documents the intended 409 rule).
+
+POST {{baseUrl}}/admin/employees
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "email": "another-admin@example.com",
+  "givenName": "Second",
+  "surname": "Admin",
+  "age": 30,
+  "position": "Manager",
+  "phoneNumber": "+46703333333",
+  "street": "Torget 1",
+  "postalCode": "31121",
+  "city": "Halmstad",
+  "role": "SuperAdmin"
+}
+
+### Expect: 201 Created — SuperAdmin is allowed to grant any role, including SuperAdmin
+
+### ============================================================
+### SCENARIO: SuperAdmin assigns the Admin role to the plain user
+### ============================================================
+
+# @name assignAdminRole
+PUT {{baseUrl}}/admin/users/{{regularUserId}}/role
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "role": "Admin"
+}
+
+### Expect: 200 Ok — user now also holds the Admin role
+
+### ============================================================
+### SCENARIO: Assigning an unknown role -> 400 ValidationProblem
+### ============================================================
+
+PUT {{baseUrl}}/admin/users/{{regularUserId}}/role
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "role": "NotARealRole"
+}
+
+### Expect: 400 ValidationProblem — "Role must be one of: SuperAdmin, Admin, User."
+
+### ============================================================
+### SCENARIO: Assigning a role to a non-existent user -> 404 NotFound
+### ============================================================
+
+PUT {{baseUrl}}/admin/users/00000000-0000-0000-0000-000000000000/role
+Authorization: Bearer {{superAdminToken}}
+Content-Type: application/json
+
+{
+  "role": "User"
+}
+
+### Expect: 404 NotFound

@@ -8,7 +8,16 @@ public static class GetEmployeeMapping
   {
     public GetEmployeeResponse ToResponse()
     {
-      return new GetEmployeeResponse(employee.Id, employee.Name, employee.Age, employee.Position);
+      return new GetEmployeeResponse(
+        employee.Id,
+        employee.Email,
+        employee.Name,
+        employee.Age,
+        employee.Position,
+        employee.PhoneNumber,
+        employee.Address.Street,
+        employee.Address.PostalCode,
+        employee.Address.City);
     }
   }
 }

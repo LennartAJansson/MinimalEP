@@ -8,9 +8,14 @@ public static class UpdateEmployeeMapping
   {
     public void ApplyTo(Employee employee)
     {
-      employee.Name = request.Name;
+      employee.GivenName = request.GivenName;
+      employee.Surname = request.Surname;
       employee.Age = request.Age;
       employee.Position = request.Position;
+      employee.PhoneNumber = request.PhoneNumber;
+      employee.Address.Street = request.Street;
+      employee.Address.PostalCode = request.PostalCode;
+      employee.Address.City = request.City;
     }
   }
 
@@ -18,7 +23,16 @@ public static class UpdateEmployeeMapping
   {
     public UpdateEmployeeResponse ToResponse()
     {
-      return new UpdateEmployeeResponse(employee.Id, employee.Name, employee.Age, employee.Position);
+      return new UpdateEmployeeResponse(
+        employee.Id,
+        employee.Email,
+        employee.Name,
+        employee.Age,
+        employee.Position,
+        employee.PhoneNumber,
+        employee.Address.Street,
+        employee.Address.PostalCode,
+        employee.Address.City);
     }
   }
 }

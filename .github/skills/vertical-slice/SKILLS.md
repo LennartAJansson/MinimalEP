@@ -110,7 +110,7 @@ public class AddCustomerEndpoint : IEndpoint
 ## Slices are not CRUD
 Vertical slice is about **use cases**, not entities. A slice models what a user needs to do — not what the database looks like. Examples alongside standard CRUD:
 
-- `StopWorkload` — PATCH that stamps a stop time; domain operation, not a generic update
+- `StartWorkload` / `StopWorkload` — a punch-clock pair, not a generic Add/Update. `StartWorkload` only accepts a start time (no `Stop`), making an already-closed time entry unrepresentable through the API; `StopWorkload` is the only slice allowed to set `Stop`. The handler enforces "only one open workload per employee" as a domain invariant.
 - `InvoiceWorkloads` — could span multiple aggregates and involve complex business logic
 - `ArchiveCustomer` — soft-delete with side effects, not a plain DELETE
 

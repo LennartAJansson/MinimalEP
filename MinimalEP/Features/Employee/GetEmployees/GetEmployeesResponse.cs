@@ -2,4 +2,13 @@ namespace MinimalEP.Features.Employee.GetEmployees;
 
 public record GetEmployeesResponse(IReadOnlyList<GetEmployeesItemResponse> Items);
 
-public record GetEmployeesItemResponse(Guid Id, string Name, int Age, string Position);
+public record GetEmployeesItemResponse(
+  Guid Id,
+  string Email,
+  string Name,
+  int Age,
+  string Position,
+  string PhoneNumber,
+  string Street,
+  string PostalCode,
+  string City);

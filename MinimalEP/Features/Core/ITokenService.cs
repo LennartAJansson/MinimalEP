@@ -4,6 +4,6 @@ using MinimalEP.Domain.Model;
 
 public interface ITokenService
 {
-  string GenerateAccessToken(ApplicationUser user, IList<string> roles);
+  string GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles);
   string GenerateRefreshToken();
 }

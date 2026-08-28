@@ -16,6 +16,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
   public DbSet<Customer> Customers => Set<Customer>();
   public DbSet<Employee> Employees => Set<Employee>();
   public DbSet<Workload> Workloads => Set<Workload>();
+  public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {

@@ -2,6 +2,7 @@ namespace MinimalEP.Features.Auth.Register;
 
 using Microsoft.AspNetCore.Identity;
 
+using MinimalEP.Domain.Core;
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 
@@ -34,13 +35,30 @@ public class RegisterHandler(
       return new Result<RegisterResponse>.Conflict(errors);
     }
 
+    // Den allra första registrerade användaren blir SuperAdmin + Admin + User, så det alltid
+    // finns minst ett konto som kan hantera roller. Alla senare registreringar blir bara User;
+    // ytterligare Admin/SuperAdmin-tilldelningar görs via AssignRole av en befintlig Admin/SuperAdmin.
+    var isFirstUser = userManager.Users.Count() == 1;
+    var rolesToAssign = isFirstUser ? Roles.All : [Roles.User];
+
+    await userManager.AddToRolesAsync(user, rolesToAssign);
+
     // Skapa Employee-posten med samma Id som användaren
     var employee = new Employee
     {
       Id = userId,
-      Name = request.Name,
+      Email = user.Email!,
+      GivenName = request.GivenName,
+      Surname = request.Surname,
       Age = request.Age,
       Position = request.Position,
+      PhoneNumber = request.PhoneNumber,
+      Address = new Address
+      {
+        Street = request.Street,
+        PostalCode = request.PostalCode,
+        City = request.City
+      },
       CreatedBy = userId  // Inget JWT finns vid registrering — sätt explicit
     };
 
@@ -50,3 +68,4 @@ public class RegisterHandler(
     return new Result<RegisterResponse>.Ok(new RegisterResponse(userId, user.Email!, employee.Name, employee.Position));
   }
 }
+

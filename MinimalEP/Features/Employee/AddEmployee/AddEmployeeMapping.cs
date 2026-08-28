@@ -10,9 +10,18 @@ public static class AddEmployeeMapping
     {
       return new Employee
       {
-        Name = request.Name,
+        Email = request.Email,
+        GivenName = request.GivenName,
+        Surname = request.Surname,
         Age = request.Age,
-        Position = request.Position
+        Position = request.Position,
+        PhoneNumber = request.PhoneNumber,
+        Address = new Address
+        {
+          Street = request.Street,
+          PostalCode = request.PostalCode,
+          City = request.City
+        }
       };
     }
   }
@@ -21,7 +30,16 @@ public static class AddEmployeeMapping
   {
     public AddEmployeeResponse ToResponse()
     {
-      return new AddEmployeeResponse(employee.Id, employee.Name, employee.Age, employee.Position);
+      return new AddEmployeeResponse(
+        employee.Id,
+        employee.Email,
+        employee.Name,
+        employee.Age,
+        employee.Position,
+        employee.PhoneNumber,
+        employee.Address.Street,
+        employee.Address.PostalCode,
+        employee.Address.City);
     }
   }
 }

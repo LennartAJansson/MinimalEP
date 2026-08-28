@@ -1,0 +1,183 @@
+@MinimalEP_HostAddress = http://localhost:5284
+@baseUrl = {{MinimalEP_HostAddress}}/api/v1
+
+### ============================================================
+### PREREQUISITE: Login and create a customer to book workloads against
+### ============================================================
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!"
+}
+
+@accessToken = {{login.response.body.accessToken}}
+
+# @name addCustomer
+POST {{baseUrl}}/customers
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Punch Clock Customer",
+  "email": "punchclock@example.com"
+}
+
+@customerId = {{addCustomer.response.body.id}}
+
+### ============================================================
+### SCENARIO: Start a workload (punch in) — Stop is intentionally
+### not part of this request; an open entry cannot be pre-closed.
+### ============================================================
+
+# @name startWorkload
+POST {{baseUrl}}/workloads/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}",
+  "start": "2025-01-01T08:00:00+00:00",
+  "comments": "Initial sync meeting"
+}
+
+### Expect: 201 Created — EmployeeId taken from the caller's token, Stop is null
+
+@workloadId = {{startWorkload.response.body.id}}
+
+### ============================================================
+### SCENARIO: Starting a second workload while one is still open -> 409 Conflict
+### (Domain invariant: an employee may not have more than one open workload)
+### ============================================================
+
+POST {{baseUrl}}/workloads/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}",
+  "start": "2025-01-01T09:00:00+00:00",
+  "comments": "Should be rejected"
+}
+
+### Expect: 409 Conflict — an open workload already exists for this employee
+
+### ============================================================
+### SCENARIO: Stop the open workload (punch out)
+### ============================================================
+
+PATCH {{baseUrl}}/workloads/{{workloadId}}/stop
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "{{workloadId}}",
+  "stop": "2025-01-01T17:00:00+00:00"
+}
+
+### Expect: 200 Ok — Stop is now set
+
+### ============================================================
+### SCENARIO: Stopping an already-stopped workload again -> 409 Conflict
+### ============================================================
+
+PATCH {{baseUrl}}/workloads/{{workloadId}}/stop
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "{{workloadId}}",
+  "stop": "2025-01-01T18:00:00+00:00"
+}
+
+### Expect: 409 Conflict — workload is already stopped
+
+### ============================================================
+### SCENARIO: Stopping a non-existent workload -> 404 NotFound
+### ============================================================
+
+PATCH {{baseUrl}}/workloads/00000000-0000-0000-0000-000000000000/stop
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "stop": "2025-01-01T18:00:00+00:00"
+}
+
+### Expect: 404 NotFound
+
+### ============================================================
+### SCENARIO: Now a new workload CAN be started (previous one is closed)
+### ============================================================
+
+# @name startSecondWorkload
+POST {{baseUrl}}/workloads/start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}",
+  "start": "2025-01-02T08:00:00+00:00",
+  "comments": "Second day"
+}
+
+### Expect: 201 Created
+
+@secondWorkloadId = {{startSecondWorkload.response.body.id}}
+
+### ============================================================
+### SCENARIO: Update a workload's details directly (full replace)
+### ============================================================
+
+PUT {{baseUrl}}/workloads/{{secondWorkloadId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "{{secondWorkloadId}}",
+  "start": "2025-01-02T08:30:00+00:00",
+  "stop": "2025-01-02T16:30:00+00:00",
+  "comments": "Adjusted after review"
+}
+
+### Expect: 200 Ok — updated Start/Stop/Comments reflected
+
+### ============================================================
+### SCENARIO: List workloads filtered by customer
+### ============================================================
+
+GET {{baseUrl}}/workloads?customerId={{customerId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — both workloads for this customer are returned
+
+### ============================================================
+### SCENARIO: Delete a workload
+### ============================================================
+
+DELETE {{baseUrl}}/workloads/{{secondWorkloadId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 204 NoContent
+
+### ============================================================
+### SCENARIO: Deleting the same workload again -> 404
+### ============================================================
+
+DELETE {{baseUrl}}/workloads/{{secondWorkloadId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 404 NotFound
+
+### ============================================================
+### CLEANUP: Remove the test customer
+### ============================================================
+
+DELETE {{baseUrl}}/customers/{{customerId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 204 NoContent

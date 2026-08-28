@@ -1,5 +1,16 @@
 @MinimalEP_HostAddress = http://localhost:5284
 
+### ============================================================
+### Scenario-based .http tests live in the Http/ folder:
+###   01-Auth.http          - register/login/refresh/token reuse
+###   02-Employee-Me.http   - self-service profile + employee lookup
+###   03-Admin-Roles.http   - admin account creation & role assignment
+###   04-Customer.http      - customer CRUD scenarios
+###   05-Workload.http      - punch-clock start/stop/update/delete flows
+### Run the app first (dotnet run), the database and roles are created
+### automatically on startup if they do not already exist.
+### ============================================================
+
 GET {{MinimalEP_HostAddress}}/weatherforecast/
 Accept: application/json
 

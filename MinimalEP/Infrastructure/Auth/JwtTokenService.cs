@@ -12,7 +12,7 @@ using MinimalEP.Features.Core;
 
 public class JwtTokenService(IConfiguration configuration) : ITokenService
 {
-  public string GenerateAccessToken(ApplicationUser user, IList<string> roles)
+  public string GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles)
   {
     var jwtSettings = configuration.GetSection("Jwt");
     var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
@@ -23,6 +23,9 @@ public class JwtTokenService(IConfiguration configuration) : ITokenService
       new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
       new(JwtRegisteredClaimNames.Email, user.Email!),
       new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
+      new("name", employee.Name),
+      new("age", employee.Age.ToString()),
+      new("position", employee.Position),
       .. roles.Select(r => new Claim(ClaimTypes.Role, r))
     ];
 

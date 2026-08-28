@@ -1,0 +1,92 @@
+@MinimalEP_HostAddress = http://localhost:5284
+@baseUrl = {{MinimalEP_HostAddress}}/api/v1
+
+### ============================================================
+### PREREQUISITE: Login
+### ============================================================
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@example.com",
+  "password": "Sup3rSecret!"
+}
+
+@accessToken = {{login.response.body.accessToken}}
+
+### ============================================================
+### SCENARIO: Create a new customer
+### ============================================================
+
+# @name addCustomer
+POST {{baseUrl}}/customers
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Acme AB",
+  "email": "contact@acme.example"
+}
+
+### Expect: 201 Created — includes the new customer's Id
+
+@customerId = {{addCustomer.response.body.id}}
+
+### ============================================================
+### SCENARIO: List all customers
+### ============================================================
+
+GET {{baseUrl}}/customers
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — list includes "Acme AB"
+
+### ============================================================
+### SCENARIO: Update the customer
+### ============================================================
+
+PUT {{baseUrl}}/customers/{{customerId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Acme Corporation",
+  "email": "info@acme.example"
+}
+
+### Expect: 200 Ok — updated Name/Email reflected
+
+### ============================================================
+### SCENARIO: Update a non-existent customer -> 404
+### ============================================================
+
+PUT {{baseUrl}}/customers/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Ghost Corp",
+  "email": "ghost@example.com"
+}
+
+### Expect: 404 NotFound
+
+### ============================================================
+### SCENARIO: Delete the customer
+### ============================================================
+
+DELETE {{baseUrl}}/customers/{{customerId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 204 NoContent
+
+### ============================================================
+### SCENARIO: Deleting the same customer again -> 404
+### ============================================================
+
+DELETE {{baseUrl}}/customers/{{customerId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 404 NotFound

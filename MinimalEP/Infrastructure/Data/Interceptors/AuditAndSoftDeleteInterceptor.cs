@@ -1,5 +1,8 @@
 ﻿namespace MinimalEP.Infrastructure.Data.Interceptors;
 
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -13,8 +16,13 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor httpContextAcces
   {
     get
     {
-      var value = httpContextAccessor.HttpContext?.User?
-          .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+      var user = httpContextAccessor.HttpContext?.User;
+
+      // JwtBearer may or may not map "sub" to ClaimTypes.NameIdentifier depending on
+      // MapInboundClaims configuration, so check both to be resilient.
+      var value = user?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                  ?? user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
       return Guid.TryParse(value, out var id) ? id : null;
     }
   }
