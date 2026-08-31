@@ -32,7 +32,8 @@ public static class UpdateEmployeeMapping
         employee.PhoneNumber,
         employee.Address.Street,
         employee.Address.PostalCode,
-        employee.Address.City);
+        employee.Address.City,
+        employee.RowVersion);
     }
   }
 }

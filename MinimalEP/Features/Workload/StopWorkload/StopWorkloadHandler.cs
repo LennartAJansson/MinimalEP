@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Workload.StopWorkload;
 
+using Microsoft.EntityFrameworkCore;
+
 using MinimalEP.Domain.Core;
 using MinimalEP.Features.Core;
 
@@ -23,9 +25,20 @@ public class StopWorkloadHandler(IWorkloadRepository repository, IUserContext us
     if (request.Stop <= workload.Start)
       return new Result<StopWorkloadResponse>.Conflict("Stop time must be after Start.");
 
-    workload.Stop = request.Stop;
-    await repository.SaveChangesAsync(cancellationToken);
+    if (request.RowVersion.Length == 0)
+      return new Result<StopWorkloadResponse>.Conflict("A row version is required.");
 
-    return new Result<StopWorkloadResponse>.Ok(new StopWorkloadResponse(workload.Id, workload.Start, workload.Stop.Value));
+    repository.SetOriginalRowVersion(workload, request.RowVersion);
+    workload.Stop = request.Stop;
+    try
+    {
+      await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+      return new Result<StopWorkloadResponse>.Conflict("The workload was changed by another request. Reload it and try again.");
+    }
+
+    return new Result<StopWorkloadResponse>.Ok(new StopWorkloadResponse(workload.Id, workload.Start, workload.Stop.Value, workload.RowVersion));
   }
 }

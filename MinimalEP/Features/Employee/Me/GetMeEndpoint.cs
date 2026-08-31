@@ -8,7 +8,7 @@ public class GetMeEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapGet("/me", async (
+    return builder.MapGet(ApiRoutes.Employees.Me, async (
       IRequestHandler<GetMeRequest, Result<GetMeResponse>> handler,
       CancellationToken cancellationToken) =>
     {
@@ -22,6 +22,6 @@ public class GetMeEndpoint : IEndpoint
       };
 
       return httpResult;
-    });
+    }).WithName(ApiRouteNames.GetMe);
   }
 }

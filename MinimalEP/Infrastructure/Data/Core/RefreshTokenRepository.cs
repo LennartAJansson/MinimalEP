@@ -15,6 +15,13 @@ public class RefreshTokenRepository(ApplicationDbContext context) : IRefreshToke
         .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.Deleted == null, cancellationToken);
   }
 
+  public async Task RevokeFamilyAsync(Guid familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
+  {
+    await context.RefreshTokens
+        .Where(x => x.FamilyId == familyId && x.RevokedAt == null)
+        .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.RevokedAt, revokedAt), cancellationToken);
+  }
+
   public async Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
   {
     await context.RefreshTokens.AddAsync(refreshToken, cancellationToken);

@@ -7,7 +7,7 @@ public class GetEmployeesHandler(IEmployeeRepository repository)
 {
   public async Task<Result<GetEmployeesResponse>> HandleAsync(GetEmployeesRequest request, CancellationToken cancellationToken)
   {
-    var employees = await repository.GetAllAsync(cancellationToken);
+    var employees = await repository.GetPageAsync(PageRequest.Create(request.After, request.PageSize), cancellationToken);
     return new Result<GetEmployeesResponse>.Ok(employees.ToResponse());
   }
 }

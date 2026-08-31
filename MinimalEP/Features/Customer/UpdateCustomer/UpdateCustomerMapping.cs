@@ -17,7 +17,7 @@ public static class UpdateCustomerMapping
   {
     public UpdateCustomerResponse ToResponse()
     {
-      return new UpdateCustomerResponse(customer.Id, customer.Name, customer.Email);
+      return new UpdateCustomerResponse(customer.Id, customer.Name, customer.Email, customer.RowVersion);
     }
   }
 }

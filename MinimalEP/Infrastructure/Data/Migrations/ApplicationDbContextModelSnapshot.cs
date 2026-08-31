@@ -248,6 +248,12 @@ namespace MinimalEP.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTimeOffset?>("Updated")
                         .HasColumnType("datetimeoffset");
 
@@ -303,6 +309,12 @@ namespace MinimalEP.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Surname")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -340,11 +352,20 @@ namespace MinimalEP.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("ReplacedByTokenId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -361,6 +382,8 @@ namespace MinimalEP.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FamilyId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
@@ -398,6 +421,12 @@ namespace MinimalEP.Infrastructure.Data.Migrations
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTimeOffset>("Start")
                         .HasColumnType("datetimeoffset");
 
@@ -412,9 +441,15 @@ namespace MinimalEP.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
+                    b.HasIndex("EmployeeId")
+                        .IsUnique()
+                        .HasFilter("[Stop] IS NULL AND [Deleted] IS NULL");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("CustomerId", "Id")
+                        .HasFilter("[Deleted] IS NULL");
+
+                    b.HasIndex("EmployeeId", "Id")
+                        .HasFilter("[Deleted] IS NULL");
 
                     b.ToTable("Workloads", (string)null);
                 });

@@ -8,7 +8,7 @@ public static class GetCustomerMapping
   {
     public GetCustomerResponse ToResponse()
     {
-      return new GetCustomerResponse(customer.Id, customer.Name, customer.Email);
+      return new GetCustomerResponse(customer.Id, customer.Name, customer.Email, customer.RowVersion);
     }
   }
 }

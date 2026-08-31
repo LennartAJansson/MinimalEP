@@ -1,20 +1,21 @@
-﻿namespace MinimalEP.Infrastructure.Data.Context;
+namespace MinimalEP.Infrastructure.Data.Context;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+
+using MinimalEP.Infrastructure.Data;
 
 public class ApplicationDbContextFactory
   : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
   public ApplicationDbContext CreateDbContext(string[] args)
   {
-    // Hittar appsettings.json i ditt huvudprojekt
     var configuration = new ConfigurationBuilder()
       .AddUserSecrets<ApplicationDbContextFactory>()
       .Build();
 
     var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-    var connectionString = configuration.GetConnectionString("DefaultConnection");
+    var connectionString = configuration.GetConnectionString(DatabaseOptions.ConnectionStringName);
 
     optionsBuilder.UseSqlServer(connectionString);
 

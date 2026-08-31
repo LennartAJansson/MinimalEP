@@ -8,7 +8,7 @@ public class UpdateWorkloadEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPut("/workloads/{id}", async (
+    return builder.MapPut(ApiRoutes.Workloads.ById, async (
       Guid id,
       UpdateWorkloadRequest request,
       IRequestHandler<UpdateWorkloadRequest, Result<UpdateWorkloadResponse>> handler,
@@ -20,6 +20,7 @@ public class UpdateWorkloadEndpoint : IEndpoint
       {
         Result<UpdateWorkloadResponse>.Ok ok    => TypedResults.Ok(ok.Value),
         Result<UpdateWorkloadResponse>.NotFound => TypedResults.NotFound(),
+        Result<UpdateWorkloadResponse>.Conflict c => TypedResults.Conflict(c.Message),
         _                                       => throw new UnreachableException()
       };
 

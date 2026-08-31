@@ -1,19 +1,23 @@
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 using Scalar.AspNetCore;
 
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 using MinimalEP.Infrastructure.Data.Core;
+using MinimalEP.Infrastructure.Observability;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddProblemDetails();
 
 builder.Services
   .AddApiVersioning(options =>
   {
-    options.DefaultApiVersion = new ApiVersion(1);
+    options.DefaultApiVersion = new ApiVersion(ApiVersions.V1);
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
   })
   .AddApiExplorer(options =>
@@ -27,7 +31,8 @@ builder.Services
   .AddEndpoints(typeof(Program))
   .AddApplicationData(builder.Configuration)
   .AddApplicationAuth(builder.Configuration)
-  .AddJwtOpenApi();
+  .AddJwtOpenApi()
+  .AddApplicationObservability(builder.Configuration);
 
 var app = builder.Build();
 
@@ -47,17 +52,29 @@ if (app.Environment.IsDevelopment())
   });
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks(ApiRoutes.LiveHealth, new HealthCheckOptions
+{
+  Predicate = _ => false
+}).AllowAnonymous();
+app.MapHealthChecks(ApiRoutes.ReadyHealth, new HealthCheckOptions
+{
+  Predicate = check => check.Tags.Contains("ready")
+}).AllowAnonymous();
+
 ApiVersionSet apiVersionSet = app.NewApiVersionSet()
-    .HasApiVersion(new ApiVersion(1))
+    .HasApiVersion(new ApiVersion(ApiVersions.V1))
     .ReportApiVersions()
     .Build();
 
 RouteGroupBuilder versionedGroup = app
-    .MapGroup("api/v{version:apiVersion}")
+    .MapGroup(ApiRoutes.VersionedGroup)
     .WithApiVersionSet(apiVersionSet)
     .RequireAuthorization();
 
@@ -65,3 +82,5 @@ RouteGroupBuilder versionedGroup = app
 app.MapEndpoints(versionedGroup);
 
 app.Run();
+
+public partial class Program;

@@ -6,8 +6,7 @@ public static class StartWorkloadMapping
 {
   extension(StartWorkloadRequest request)
   {
-    // EmployeeId sätts av handlern utifrån den inloggade användarens JWT-claim (IUserContext),
-    // aldrig från klienten — se StartWorkloadHandler för resonemanget (OWASP API1: broken
+    // EmployeeId comes from IUserContext, never from client input (OWASP API1: broken
     // object level authorization / "never trust client-supplied identity").
     public Workload ToEntity(Guid employeeId)
     {

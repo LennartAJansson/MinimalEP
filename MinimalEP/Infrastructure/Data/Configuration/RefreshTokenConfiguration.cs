@@ -14,13 +14,17 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
     builder.HasKey(x => x.Id);
 
     builder.Property(x => x.TokenHash)
-        .HasMaxLength(200)
+        .HasMaxLength(RefreshTokenConstraints.HashMaxLength)
         .IsRequired();
 
     builder.Property(x => x.ExpiresAt)
         .IsRequired();
 
+    builder.Property(x => x.RowVersion)
+        .IsRowVersion();
+
     builder.HasIndex(x => x.UserId);
+    builder.HasIndex(x => x.FamilyId);
     builder.HasIndex(x => x.TokenHash).IsUnique();
 
     builder.HasQueryFilter(x => x.Deleted == null);

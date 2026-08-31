@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Customer.UpdateCustomer;
 
+using Microsoft.EntityFrameworkCore;
+
 using MinimalEP.Features.Core;
 
 public class UpdateCustomerHandler(ICustomerRepository repository)
@@ -12,8 +14,16 @@ public class UpdateCustomerHandler(ICustomerRepository repository)
     if (customer is null)
       return new Result<UpdateCustomerResponse>.NotFound();
 
+    repository.SetOriginalRowVersion(customer, request.RowVersion);
     request.ApplyTo(customer);
-    await repository.SaveChangesAsync(cancellationToken);
+    try
+    {
+      await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+      return new Result<UpdateCustomerResponse>.Conflict("The customer was changed by another request. Reload it and try again.");
+    }
 
     return new Result<UpdateCustomerResponse>.Ok(customer.ToResponse());
   }

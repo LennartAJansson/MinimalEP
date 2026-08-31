@@ -1,9 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisMode>Recommended</AnalysisMode>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 		<UserSecretsId>d22b4fbd-5f2e-4624-a89c-4f87b805310a</UserSecretsId>
 		<Description>MinimalEP — Minimal API template using Vertical Slice Architecture</Description>
 		<!-- AV0029 is reported by the OpenAPI source generator's own generated file when
@@ -26,6 +29,11 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.18.0" />
 		<PackageReference Include="Scalar.AspNetCore" Version="2.17.1" />
 		<PackageReference Include="Scalar.AspNetCore.Microsoft" Version="2.17.1" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />

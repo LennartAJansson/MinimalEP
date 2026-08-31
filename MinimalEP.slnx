@@ -1,3 +1,6 @@
 <Solution>
+  <Folder Name="/Docs/" />
+  <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
+  <Project Path="MinimalEP.Tests/MinimalEP.Tests.csproj" />
   <Project Path="MinimalEP/MinimalEP.csproj" />
 </Solution>

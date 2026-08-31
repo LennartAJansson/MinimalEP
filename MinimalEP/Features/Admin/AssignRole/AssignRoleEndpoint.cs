@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Admin.AssignRole;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class AssignRoleEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPut("/admin/users/{userId}/role", async (
+    return builder.MapPut(ApiRoutes.Admin.UserRole, async (
       Guid userId,
       AssignRoleRequest request,
       IRequestHandler<AssignRoleRequest, Result<AssignRoleResponse>> handler,
@@ -25,6 +26,6 @@ public class AssignRoleEndpoint : IEndpoint
       };
 
       return httpResult;
-    }).RequireAuthorization("AdminOrAbove");
+    }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

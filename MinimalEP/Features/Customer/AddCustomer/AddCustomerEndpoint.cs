@@ -1,15 +1,16 @@
-﻿namespace MinimalEP.Features.Customer.AddCustomer;
+namespace MinimalEP.Features.Customer.AddCustomer;
 
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class AddCustomerEndpoint 
   : IEndpoint
 {
     public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
     {
-      return builder.MapPost("/customers", async (
+      return builder.MapPost(ApiRoutes.Customers.Collection, async (
         AddCustomerRequest request,
         IRequestHandler<AddCustomerRequest, Result<AddCustomerResponse>> handler,
         CancellationToken cancellationToken) =>
@@ -18,12 +19,12 @@ public class AddCustomerEndpoint
 
         IResult httpResult = result switch
         {
-          Result<AddCustomerResponse>.Ok ok       => TypedResults.Created($"/customers/{ok.Value.Id}", ok.Value),
+          Result<AddCustomerResponse>.Ok ok       => TypedResults.CreatedAtRoute(ok.Value, ApiRouteNames.GetCustomer, new { version = ApiVersions.V1RouteValue, id = ok.Value.Id }),
           Result<AddCustomerResponse>.Conflict c  => TypedResults.Conflict(c.Message),
           _                                       => throw new UnreachableException()
         };
 
         return httpResult;
-      });
+      }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
     }
 }

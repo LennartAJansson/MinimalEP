@@ -13,6 +13,13 @@ public static class DbExtensions
   {
     public IServiceCollection AddApplicationData(IConfiguration configuration)
     {
+      _ = configuration.GetConnectionString(DatabaseOptions.ConnectionStringName)
+        ?? throw new InvalidOperationException($"ConnectionStrings:{DatabaseOptions.ConnectionStringName} is required.");
+
+      services.AddOptions<DatabaseOptions>()
+        .Bind(configuration.GetRequiredSection(DatabaseOptions.SectionName))
+        .ValidateOnStart();
+
       // 1. Register user context for HTTP requests
       services.AddHttpContextAccessor();
       services.AddScoped<IUserContext, HttpUserContext>();
@@ -31,17 +38,13 @@ public static class DbExtensions
       // 3. Register DbContext with pooling and interceptors
       services.AddDbContextPool<ApplicationDbContext>((sp, options) =>
       {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = configuration.GetConnectionString(DatabaseOptions.ConnectionStringName);
 
         // Resolve Singleton interceptor — safe to resolve from the root provider
         var auditInterceptor = sp.GetRequiredService<AuditAndSoftDeleteInterceptor>();
         options.AddInterceptors(auditInterceptor);
 
         options.UseSqlServer(connectionString);
-
-#if DEBUG
-        options.EnableSensitiveDataLogging();
-#endif
       });
 
       return services;

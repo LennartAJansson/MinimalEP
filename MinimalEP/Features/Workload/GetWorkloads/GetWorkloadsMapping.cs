@@ -1,6 +1,7 @@
 namespace MinimalEP.Features.Workload.GetWorkloads;
 
 using MinimalEP.Domain.Model;
+using MinimalEP.Features.Core;
 
 public static class GetWorkloadsMapping
 {
@@ -16,15 +17,16 @@ public static class GetWorkloadsMapping
         workload.Employee.Name,
         workload.Start,
         workload.Stop,
-        workload.Comments);
+        workload.Comments,
+        workload.RowVersion);
     }
   }
 
-  extension(IReadOnlyList<Workload> workloads)
+  extension(PagedResult<Workload> workloads)
   {
     public GetWorkloadsResponse ToResponse()
     {
-      return new GetWorkloadsResponse(workloads.Select(w => w.ToItemResponse()).ToList());
+      return new GetWorkloadsResponse(workloads.Items.Select(w => w.ToItemResponse()).ToList(), workloads.NextCursor);
     }
   }
 }

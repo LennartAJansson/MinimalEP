@@ -1,6 +1,7 @@
 namespace MinimalEP.Features.Customer.GetCustomers;
 
 using MinimalEP.Domain.Model;
+using MinimalEP.Features.Core;
 
 public static class GetCustomersMapping
 {
@@ -8,15 +9,15 @@ public static class GetCustomersMapping
   {
     public GetCustomersItemResponse ToItemResponse()
     {
-      return new GetCustomersItemResponse(customer.Id, customer.Name, customer.Email);
+      return new GetCustomersItemResponse(customer.Id, customer.Name, customer.Email, customer.RowVersion);
     }
   }
 
-  extension(IReadOnlyList<Customer> customers)
+  extension(PagedResult<Customer> customers)
   {
     public GetCustomersResponse ToResponse()
     {
-      return new GetCustomersResponse(customers.Select(c => c.ToItemResponse()).ToList());
+      return new GetCustomersResponse(customers.Items.Select(c => c.ToItemResponse()).ToList(), customers.NextCursor);
     }
   }
 }

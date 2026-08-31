@@ -78,7 +78,7 @@ public class AddCustomerEndpoint : IEndpoint
 {
 	public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
 	{
-		return builder.MapPost("/customers", async (
+		return builder.MapPost(ApiRoutes.Customers.Collection, async (
 			AddCustomerRequest request,
 			IRequestHandler<AddCustomerRequest, Result<AddCustomerResponse>> handler,
 			CancellationToken cancellationToken) =>
@@ -87,7 +87,7 @@ public class AddCustomerEndpoint : IEndpoint
 
 			IResult httpResult = result switch
 			{
-				Result<AddCustomerResponse>.Ok ok      => TypedResults.Created($"/customers/{ok.Value.Id}", ok.Value),
+				Result<AddCustomerResponse>.Ok ok      => TypedResults.CreatedAtRoute(ok.Value, ApiRouteNames.GetCustomer, new { version = ApiVersions.V1RouteValue, id = ok.Value.Id }),
 				Result<AddCustomerResponse>.Conflict c => TypedResults.Conflict(c.Message),
 				_                                      => throw new UnreachableException()
 			};
@@ -120,3 +120,7 @@ Each slice has exactly the complexity it needs, without affecting any other slic
 - Always assign to an `IResult` variable before `return` — resolves delegate ambiguity with `TypedResults`
 - Auth endpoints: add `.AllowAnonymous()` directly on the route method — overrides the group's `RequireAuthorization()`
 - Never do an unsafe cast `((Result<T>.Ok)result).Value` — use a `switch` pattern with `UnreachableException` in the `_` arm
+- Use shared route names/constants and `CreatedAtRoute` so `Location` remains correct under API versioning
+- List slices accept `after`/`pageSize`, use `PageRequest`, and return `Items` plus `NextCursor`
+- Editable read responses expose `RowVersion`; update requests require it and stale writes map to `409 Conflict`
+- Propagate `CancellationToken` from endpoint through handler and repository

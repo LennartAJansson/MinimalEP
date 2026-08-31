@@ -9,7 +9,6 @@ public static class UpdateWorkloadMapping
     public void ApplyTo(Workload workload)
     {
       workload.Start = request.Start;
-      workload.Stop = request.Stop;
       workload.Comments = request.Comments;
     }
   }
@@ -24,7 +23,8 @@ public static class UpdateWorkloadMapping
         workload.EmployeeId,
         workload.Start,
         workload.Stop,
-        workload.Comments);
+        workload.Comments,
+        workload.RowVersion);
     }
   }
 }

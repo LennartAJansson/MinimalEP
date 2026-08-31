@@ -1,3 +1,3 @@
 namespace MinimalEP.Features.Workload.StopWorkload;
 
-public record StopWorkloadRequest(Guid Id, DateTimeOffset Stop);
+public record StopWorkloadRequest(Guid Id, DateTimeOffset Stop, byte[] RowVersion);

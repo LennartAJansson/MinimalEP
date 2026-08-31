@@ -8,7 +8,7 @@ public class DeleteWorkloadEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapDelete("/workloads/{id}", async (
+    return builder.MapDelete(ApiRoutes.Workloads.ById, async (
       Guid id,
       IRequestHandler<DeleteWorkloadRequest, Result<Unit>> handler,
       CancellationToken cancellationToken) =>

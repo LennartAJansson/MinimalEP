@@ -9,6 +9,7 @@ public class Employee : BaseEntity
   public required string Position { get; set; }
   public required string PhoneNumber { get; set; }
   public required Address Address { get; set; }
+  public byte[] RowVersion { get; set; } = [];
 
   // Computed, not persisted — kept for convenience in mappings/JWT claims so callers
   // don't need to know the underlying GivenName/Surname split.

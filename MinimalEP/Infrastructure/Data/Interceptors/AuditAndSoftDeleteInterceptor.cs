@@ -1,4 +1,4 @@
-﻿namespace MinimalEP.Infrastructure.Data.Interceptors;
+namespace MinimalEP.Infrastructure.Data.Interceptors;
 
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -53,10 +53,10 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor httpContextAcces
       {
         case EntityState.Added:
           entry.Entity.Created = now;
-          // Skriv inte över CreatedBy om det redan är satt explicit (t.ex. vid registrering)
+          // Preserve an explicitly assigned creator for unauthenticated workflows.
           entry.Entity.CreatedBy ??= currentUserId;
 
-          // Sätt EmployeeId automatiskt när en ny Workload skapas från den inloggade användaren
+          // Workload ownership always comes from the authenticated identity.
           if (entry.Entity is Workload workloadAdded && currentUserId.HasValue)
             workloadAdded.EmployeeId = currentUserId.Value;
 

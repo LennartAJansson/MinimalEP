@@ -12,12 +12,13 @@ public class GetWorkloadsHandler(IWorkloadRepository repository, IUserContext us
     // EmployeeId for authorization. Admin/SuperAdmin may query freely.
     var isPrivileged = userContext.IsInRole(Roles.SuperAdmin) || userContext.IsInRole(Roles.Admin);
     var effectiveRequest = isPrivileged ? request : request with { EmployeeId = userContext.UserId, CustomerId = null };
+    var page = PageRequest.Create(effectiveRequest.After, effectiveRequest.PageSize);
 
     var workloads = effectiveRequest switch
     {
-      { CustomerId: not null } => await repository.GetByCustomerAsync(effectiveRequest.CustomerId.Value, cancellationToken),
-      { EmployeeId: not null } => await repository.GetByEmployeeAsync(effectiveRequest.EmployeeId.Value, cancellationToken),
-      _                        => await repository.GetAllAsync(cancellationToken)
+      { CustomerId: not null } => await repository.GetByCustomerPageAsync(effectiveRequest.CustomerId.Value, page, cancellationToken),
+      { EmployeeId: not null } => await repository.GetByEmployeePageAsync(effectiveRequest.EmployeeId.Value, page, cancellationToken),
+      _                        => await repository.GetPageAsync(page, cancellationToken)
     };
 
     return new Result<GetWorkloadsResponse>.Ok(workloads.ToResponse());

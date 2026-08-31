@@ -19,7 +19,7 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
   private const string BaseSelect = """
     SELECT
       Id, Email, GivenName, Surname, Age, Position, PhoneNumber,
-      Created, CreatedBy, Updated, UpdatedBy, Deleted, DeletedBy,
+      Created, CreatedBy, Updated, UpdatedBy, Deleted, DeletedBy, RowVersion,
       Address_Street AS Street, Address_PostalCode AS PostalCode, Address_City AS City
     FROM Employees
     WHERE Deleted IS NULL
@@ -31,7 +31,7 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
     return e;
   }
 
-  // --- Läsoperationer via Dapper ---
+  // Reads use Dapper; tracked writes use EF Core.
 
   public async Task<Employee?> GetByIdAsync(Guid id, CancellationToken cancellationToken, bool tracked = false)
   {
@@ -43,9 +43,11 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
 
     using IDbConnection db = connectionFactory.CreateConnection();
     var result = await db.QueryAsync<Employee, Address, Employee>(
-      $"{BaseSelect} AND Id = @Id",
+      new CommandDefinition(
+        $"{BaseSelect} AND Id = @Id",
+        new { Id = id },
+        cancellationToken: cancellationToken),
       Map,
-      new { Id = id },
       splitOn: "Street");
 
     return result.SingleOrDefault();
@@ -53,13 +55,35 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
 
   public async Task<IReadOnlyList<Employee>> GetAllAsync(CancellationToken cancellationToken)
   {
-    using IDbConnection db = connectionFactory.CreateConnection();
-    var result = await db.QueryAsync<Employee, Address, Employee>(
-      BaseSelect, Map, splitOn: "Street");
-    return result.AsList();
+    var page = await GetPageAsync(PageRequest.Create(null, null), cancellationToken);
+    return page.Items;
   }
 
-  // --- Skrivoperationer via EF Core ---
+  public async Task<PagedResult<Employee>> GetPageAsync(PageRequest page, CancellationToken cancellationToken)
+  {
+    using IDbConnection db = connectionFactory.CreateConnection();
+    var result = await db.QueryAsync<Employee, Address, Employee>(
+      new CommandDefinition(
+        """
+        SELECT TOP (@Take)
+          Id, Email, GivenName, Surname, Age, Position, PhoneNumber,
+          Created, CreatedBy, Updated, UpdatedBy, Deleted, DeletedBy, RowVersion,
+          Address_Street AS Street, Address_PostalCode AS PostalCode, Address_City AS City
+        FROM Employees
+        WHERE Deleted IS NULL AND (@After IS NULL OR Id > @After)
+        ORDER BY Id
+        """,
+        new { Take = page.PageSize + PageRequest.LookaheadSize, page.After },
+        cancellationToken: cancellationToken),
+      Map,
+      splitOn: "Street");
+    var items = result.AsList();
+    var hasMore = items.Count > page.PageSize;
+    if (hasMore)
+      items.RemoveAt(items.Count - 1);
+
+    return new PagedResult<Employee>(items, hasMore ? items[^1].Id : null);
+  }
 
   public async Task AddAsync(Employee employee, CancellationToken cancellationToken)
   {
@@ -69,6 +93,11 @@ public class EmployeeRepository(ApplicationDbContext context, IDbConnectionFacto
   public void Remove(Employee employee)
   {
     context.Employees.Remove(employee);
+  }
+
+  public void SetOriginalRowVersion(Employee employee, byte[] rowVersion)
+  {
+    context.Entry(employee).Property(x => x.RowVersion).OriginalValue = rowVersion;
   }
 
   public async Task SaveChangesAsync(CancellationToken cancellationToken)

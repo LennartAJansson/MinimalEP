@@ -1,14 +1,18 @@
 namespace MinimalEP.Features.Admin.AssignRole;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 using MinimalEP.Domain.Core;
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Data.Context;
 
 public class AssignRoleHandler(
   UserManager<ApplicationUser> userManager,
-  IUserContext userContext)
+  IUserContext userContext,
+  ApplicationDbContext context,
+  ILogger<AssignRoleHandler> logger)
   : IRequestHandler<AssignRoleRequest, Result<AssignRoleResponse>>
 {
   public async Task<Result<AssignRoleResponse>> HandleAsync(AssignRoleRequest request, CancellationToken cancellationToken)
@@ -33,10 +37,44 @@ public class AssignRoleHandler(
         return new Result<AssignRoleResponse>.Conflict("Only a SuperAdmin may grant the Admin or SuperAdmin role.");
     }
 
-    if (currentRoles.Count > 0)
-      await userManager.RemoveFromRolesAsync(user, currentRoles);
+    if (currentRoles.Contains(request.Role))
+      return new Result<AssignRoleResponse>.Ok(new AssignRoleResponse(user.Id, [request.Role]));
 
-    await userManager.AddToRoleAsync(user, request.Role);
+    if (userContext.UserId == user.Id && currentRoles.Contains(Roles.SuperAdmin) && request.Role != Roles.SuperAdmin)
+      return new Result<AssignRoleResponse>.Conflict("A SuperAdmin may not remove their own SuperAdmin role.");
+
+    if (currentRoles.Contains(Roles.SuperAdmin) && request.Role != Roles.SuperAdmin)
+    {
+      var superAdmins = await userManager.GetUsersInRoleAsync(Roles.SuperAdmin);
+      if (superAdmins.Count == 1)
+        return new Result<AssignRoleResponse>.Conflict("The last SuperAdmin may not be demoted.");
+    }
+
+    await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+    if (currentRoles.Count > 0)
+    {
+      var removeResult = await userManager.RemoveFromRolesAsync(user, currentRoles);
+      if (!removeResult.Succeeded)
+      {
+        var errors = string.Join(", ", removeResult.Errors.Select(e => e.Description));
+        return new Result<AssignRoleResponse>.Conflict(errors);
+      }
+    }
+
+    var addResult = await userManager.AddToRoleAsync(user, request.Role);
+    if (!addResult.Succeeded)
+    {
+      var errors = string.Join(", ", addResult.Errors.Select(e => e.Description));
+      return new Result<AssignRoleResponse>.Conflict(errors);
+    }
+
+    await transaction.CommitAsync(cancellationToken);
+    logger.LogInformation(
+      "User {TargetUserId} role changed to {Role} by {ActorUserId}.",
+      user.Id,
+      request.Role,
+      userContext.UserId);
 
     return new Result<AssignRoleResponse>.Ok(new AssignRoleResponse(user.Id, [request.Role]));
   }

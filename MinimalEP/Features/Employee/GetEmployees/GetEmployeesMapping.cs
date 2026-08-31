@@ -1,6 +1,7 @@
 namespace MinimalEP.Features.Employee.GetEmployees;
 
 using MinimalEP.Domain.Model;
+using MinimalEP.Features.Core;
 
 public static class GetEmployeesMapping
 {
@@ -17,15 +18,16 @@ public static class GetEmployeesMapping
         employee.PhoneNumber,
         employee.Address.Street,
         employee.Address.PostalCode,
-        employee.Address.City);
+        employee.Address.City,
+        employee.RowVersion);
     }
   }
 
-  extension(IReadOnlyList<Employee> employees)
+  extension(PagedResult<Employee> employees)
   {
     public GetEmployeesResponse ToResponse()
     {
-      return new GetEmployeesResponse(employees.Select(e => e.ToItemResponse()).ToList());
+      return new GetEmployeesResponse(employees.Items.Select(e => e.ToItemResponse()).ToList(), employees.NextCursor);
     }
   }
 }

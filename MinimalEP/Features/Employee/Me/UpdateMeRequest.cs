@@ -8,4 +8,5 @@ public record UpdateMeRequest(
   string PhoneNumber,
   string Street,
   string PostalCode,
-  string City);
+  string City,
+  byte[] RowVersion);

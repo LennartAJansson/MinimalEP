@@ -1,6 +1,6 @@
 namespace MinimalEP.Features.Employee.GetEmployees;
 
-public record GetEmployeesResponse(IReadOnlyList<GetEmployeesItemResponse> Items);
+public record GetEmployeesResponse(IReadOnlyList<GetEmployeesItemResponse> Items, Guid? NextCursor);
 
 public record GetEmployeesItemResponse(
   Guid Id,
@@ -11,4 +11,5 @@ public record GetEmployeesItemResponse(
   string PhoneNumber,
   string Street,
   string PostalCode,
-  string City);
+  string City,
+  byte[] RowVersion);

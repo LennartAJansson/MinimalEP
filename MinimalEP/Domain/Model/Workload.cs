@@ -7,6 +7,7 @@ public class Workload : BaseEntity
   public required DateTimeOffset Start { get; set; }
   public DateTimeOffset? Stop { get; set; }
   public string? Comments { get; set; }
+  public byte[] RowVersion { get; set; } = [];
 
   public Customer Customer { get; set; } = null!;
   public Employee Employee { get; set; } = null!;

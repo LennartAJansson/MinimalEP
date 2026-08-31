@@ -15,7 +15,8 @@ public class WorkloadConfiguration : IEntityTypeConfiguration<Workload>
 
     builder.Property(x => x.Start).IsRequired();
     builder.Property(x => x.Stop);
-    builder.Property(x => x.Comments).HasMaxLength(1000);
+    builder.Property(x => x.Comments).HasMaxLength(WorkloadConstraints.CommentsMaxLength);
+    builder.Property(x => x.RowVersion).IsRowVersion();
 
     builder.HasOne(x => x.Customer)
         .WithMany()
@@ -26,6 +27,16 @@ public class WorkloadConfiguration : IEntityTypeConfiguration<Workload>
         .WithMany()
         .HasForeignKey(x => x.EmployeeId)
         .OnDelete(DeleteBehavior.Restrict);
+
+    builder.HasIndex(x => x.EmployeeId)
+        .IsUnique()
+        .HasFilter("[Stop] IS NULL AND [Deleted] IS NULL");
+
+    builder.HasIndex(x => new { x.EmployeeId, x.Id })
+        .HasFilter("[Deleted] IS NULL");
+
+    builder.HasIndex(x => new { x.CustomerId, x.Id })
+        .HasFilter("[Deleted] IS NULL");
 
     builder.HasQueryFilter(x => x.Deleted == null);
   }

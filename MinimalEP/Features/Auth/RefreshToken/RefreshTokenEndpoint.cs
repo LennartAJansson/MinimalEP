@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Auth.RefreshToken;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class RefreshTokenEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPost("/auth/refresh", async (
+    return builder.MapPost(ApiRoutes.Auth.Refresh, async (
       RefreshTokenRequest request,
       IRequestHandler<RefreshTokenRequest, Result<RefreshTokenResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -23,6 +24,6 @@ public class RefreshTokenEndpoint : IEndpoint
       };
 
       return httpResult;
-    }).AllowAnonymous();
+    }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

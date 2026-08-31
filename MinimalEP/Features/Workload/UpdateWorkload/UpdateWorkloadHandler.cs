@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Workload.UpdateWorkload;
 
+using Microsoft.EntityFrameworkCore;
+
 using MinimalEP.Domain.Core;
 using MinimalEP.Features.Core;
 
@@ -17,8 +19,16 @@ public class UpdateWorkloadHandler(IWorkloadRepository repository, IUserContext 
     if (!isPrivileged && workload.EmployeeId != userContext.UserId)
       return new Result<UpdateWorkloadResponse>.NotFound();
 
+    repository.SetOriginalRowVersion(workload, request.RowVersion);
     request.ApplyTo(workload);
-    await repository.SaveChangesAsync(cancellationToken);
+    try
+    {
+      await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+      return new Result<UpdateWorkloadResponse>.Conflict("The workload was changed by another request. Reload it and try again.");
+    }
 
     return new Result<UpdateWorkloadResponse>.Ok(workload.ToResponse());
   }

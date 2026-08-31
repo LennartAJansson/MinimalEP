@@ -8,7 +8,7 @@ public class GetWorkloadEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapGet("/workloads/{id}", async (
+    return builder.MapGet(ApiRoutes.Workloads.ById, async (
       Guid id,
       IRequestHandler<GetWorkloadRequest, Result<GetWorkloadResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -23,6 +23,6 @@ public class GetWorkloadEndpoint : IEndpoint
       };
 
       return httpResult;
-    });
+    }).WithName(ApiRouteNames.GetWorkload);
   }
 }

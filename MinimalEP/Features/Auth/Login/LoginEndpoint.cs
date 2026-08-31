@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Auth.Login;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class LoginEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPost("/auth/login", async (
+    return builder.MapPost(ApiRoutes.Auth.Login, async (
       LoginRequest request,
       IRequestHandler<LoginRequest, Result<LoginResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -23,6 +24,6 @@ public class LoginEndpoint : IEndpoint
       };
 
       return httpResult;
-    }).AllowAnonymous();
+    }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

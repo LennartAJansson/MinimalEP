@@ -45,7 +45,7 @@ var handlerInterface = endpoint.GetType().Assembly.DefinedTypes
 ## Protect all routes by default
 ```csharp
 RouteGroupBuilder versionedGroup = app
-	.MapGroup("api/v{version:apiVersion}")
+	.MapGroup(ApiRoutes.VersionedGroup)
 	.WithApiVersionSet(apiVersionSet)
 	.RequireAuthorization();
 ```
@@ -55,3 +55,5 @@ Auth endpoints override with `.AllowAnonymous()` directly on the route method.
 - Never manually register handlers, endpoints or validators in Program.cs
 - Every new slice is picked up automatically as long as the files exist in the assembly
 - Slices do not have to be CRUD — model use cases, not entities
+- Keep endpoint and handler for a slice in the same namespace while namespace-based validation discovery is in use
+- Treat reflection registration as a startup/maintenance trade-off; replace it only when measurement or concrete maintainability problems justify the change

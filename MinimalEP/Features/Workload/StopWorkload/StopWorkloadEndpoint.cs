@@ -8,7 +8,7 @@ public class StopWorkloadEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPatch("/workloads/{id}/stop", async (
+    return builder.MapPatch(ApiRoutes.Workloads.Stop, async (
       Guid id,
       StopWorkloadRequest request,
       IRequestHandler<StopWorkloadRequest, Result<StopWorkloadResponse>> handler,

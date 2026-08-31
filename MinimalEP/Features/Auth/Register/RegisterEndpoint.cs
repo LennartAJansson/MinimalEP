@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Auth.Register;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class RegisterEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapPost("/auth/register", async (
+    return builder.MapPost(ApiRoutes.Auth.Register, async (
       RegisterRequest request,
       IRequestHandler<RegisterRequest, Result<RegisterResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -17,12 +18,12 @@ public class RegisterEndpoint : IEndpoint
 
       IResult httpResult = result switch
       {
-        Result<RegisterResponse>.Ok ok      => TypedResults.Created($"/auth/{ok.Value.UserId}", ok.Value),
+        Result<RegisterResponse>.Ok ok      => TypedResults.CreatedAtRoute(ok.Value, ApiRouteNames.GetMe, new { version = ApiVersions.V1RouteValue }),
         Result<RegisterResponse>.Conflict c => TypedResults.Conflict(c.Message),
         _                                   => throw new UnreachableException()
       };
 
       return httpResult;
-    }).AllowAnonymous();
+    }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

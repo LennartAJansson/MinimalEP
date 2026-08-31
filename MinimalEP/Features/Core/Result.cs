@@ -7,7 +7,7 @@ public abstract record Result<T>
   public sealed record Conflict(string Message) : Result<T>;
 }
 
-/// <summary>Används som TResponse när en handler inte returnerar någon data, t.ex. Delete.</summary>
+/// <summary>Represents a successful response without a payload.</summary>
 public record struct Unit
 {
   public static readonly Unit Value = new();

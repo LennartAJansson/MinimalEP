@@ -7,7 +7,7 @@ public class GetCustomersHandler(ICustomerRepository repository)
 {
   public async Task<Result<GetCustomersResponse>> HandleAsync(GetCustomersRequest request, CancellationToken cancellationToken)
   {
-    var customers = await repository.GetAllAsync(cancellationToken);
+    var customers = await repository.GetPageAsync(PageRequest.Create(request.After, request.PageSize), cancellationToken);
     return new Result<GetCustomersResponse>.Ok(customers.ToResponse());
   }
 }

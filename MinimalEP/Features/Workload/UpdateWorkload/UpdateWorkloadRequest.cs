@@ -1,3 +1,3 @@
 namespace MinimalEP.Features.Workload.UpdateWorkload;
 
-public record UpdateWorkloadRequest(Guid Id, DateTimeOffset Start, DateTimeOffset? Stop, string? Comments);
+public record UpdateWorkloadRequest(Guid Id, DateTimeOffset Start, string? Comments, byte[] RowVersion);

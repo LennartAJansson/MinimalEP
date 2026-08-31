@@ -135,11 +135,17 @@ Each aggregate has:
 
 ```csharp
 Task<T?> GetByIdAsync(Guid id, CancellationToken ct, bool tracked = false);
-Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct);
+Task<PagedResult<T>> GetPageAsync(PageRequest page, CancellationToken ct);
 Task AddAsync(T entity, CancellationToken ct);
 void Remove(T entity);
+void SetOriginalRowVersion(T entity, byte[] rowVersion);
 Task SaveChangesAsync(CancellationToken ct);
 ```
+
+- List reads use bounded UUID v7 keyset pagination through `PageRequest` (default 50, maximum 100) and return `PagedResult<T>` with `NextCursor`.
+- Every Dapper operation must use `CommandDefinition` and propagate the request `CancellationToken`.
+- Dapper SQL must explicitly filter soft-deleted root and joined entities.
+- Prefer explicit column lists over `SELECT *`; include `RowVersion` in reads for editable entities.
 
 ---
 
@@ -152,6 +158,9 @@ Task SaveChangesAsync(CancellationToken ct);
   builder.HasQueryFilter(x => x.Deleted == null);
   ```
 - `ApplyConfigurationsFromAssembly` in `OnModelCreating` — never configure inline
+- Editable `Customer`, `Employee` and `Workload` entities use SQL Server `rowversion` via `builder.Property(x => x.RowVersion).IsRowVersion()`.
+- Read responses expose `RowVersion`; update requests send the last-read value. Set it as EF's original value before saving and map `DbUpdateConcurrencyException` to `409 Conflict`.
+- Never regenerate or edit an existing migration to change deployed schema; add a new migration and validate it with SQL Server integration tests.
 
 ---
 
@@ -177,14 +186,30 @@ To set `CreatedBy` when no JWT exists (e.g. registration), set it explicitly bef
 - `Register` creates both `ApplicationUser` and `Employee` with the same `Id`
 - Auth endpoints (`/auth/register`, `/auth/login`, `/auth/refresh`) use `.AllowAnonymous()`
 - All other endpoints require authorization via `RouteGroupBuilder.RequireAuthorization()`
+- Administrative customer/employee operations require `AuthorizationPolicies.AdminOrAbove`; role administration uses `SuperAdminOnly` where applicable.
+- Public registration always receives the lowest `User` role. SuperAdmin bootstrap is explicit, disabled by default, validated at startup, and only runs against an empty installation.
+- Login uses Identity lockout and auth routes use `RateLimitPolicies.Authentication`.
+- Refresh tokens are SHA-256 hashed, grouped into token families, rotated atomically, and protected by `rowversion`; reuse revokes the family.
 
 ---
 
 ## Scalar / OpenAPI — Bearer Auth
 
 `BearerSecuritySchemeTransformer : IOpenApiDocumentTransformer` adds Bearer security scheme.
-Register via `services.AddOpenApi(o => o.AddDocumentTransformer<BearerSecuritySchemeTransformer>())`.
+API versioning already registers OpenAPI. Attach the transformer with `services.ConfigureAll<OpenApiOptions>(...)`; do not call `AddOpenApi` a second time.
 Always initialize `operation.Security ??= []` before adding — it is null by default in OpenApi 2.7.5.
+
+OpenAPI and Scalar are development-only. Versioned documents use `/openapi/v1.json` and Scalar uses `/scalar/v1`.
+
+---
+
+## Observability, Health and Problem Details
+
+- Register `AddProblemDetails()` and `UseExceptionHandler()` for centralized unexpected-error handling.
+- `/health/live` is anonymous and process-only; `/health/ready` is anonymous and checks SQL Server.
+- OpenTelemetry instruments ASP.NET Core, `HttpClient`, SQL Client and HTTP metrics. OTLP export is enabled when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured.
+- Preserve W3C Trace Context. A unique `Activity.TraceId` must flow through incoming requests and child spans and be included in structured logs and Problem Details without exposing tokens, passwords or personal data.
+- A tracing backend such as Jaeger should consume OTLP; do not add vendor-specific tracing throughout feature code.
 
 ---
 
@@ -203,6 +228,8 @@ public class BaseEntity
 }
 ```
 
+`RowVersion` belongs only to editable entities (`Customer`, `Employee`, `Workload`), not to `BaseEntity`.
+
 ---
 
 ## User Identity Convention
@@ -219,8 +246,10 @@ The interceptor uses `UserId` (from `sub` claim) as both the audit identity and 
 
 - `StartWorkload` (`POST /workloads/start`) — request only carries `Start` (no `Stop`), so an already-closed time entry cannot be represented through this endpoint. `EmployeeId` is always taken from `IUserContext.UserId`, never from the client.
 - `StopWorkload` (`PATCH /workloads/{id}/stop`) — the only slice allowed to set `Stop`.
-- Domain invariant: an employee may not have more than one open workload (`Stop == null`) at a time — `StartWorkloadHandler` checks this via `IWorkloadRepository.GetByEmployeeAsync` and returns `409 Conflict` if violated.
+- Domain invariant: an employee may not have more than one open workload (`Stop == null`) at a time — `StartWorkloadHandler` uses `IWorkloadRepository.HasOpenWorkloadAsync`; a filtered unique database index is the concurrency-safe final guard.
 - Ownership scoping applies to `Get/GetAll/Update/Stop/Delete`: plain `User` role is restricted to their own `EmployeeId`; `Admin`/`SuperAdmin` are not.
+- `UpdateWorkload` cannot set `Stop`; only `StopWorkload` may close an entry.
+- Workload update and stop requests require the last-read `RowVersion`; stale writes return `409 Conflict`.
 
 ---
 
@@ -231,4 +260,14 @@ The interceptor uses `UserId` (from `sub` claim) as both the audit identity and 
 
 - `Address` is an EF Core **owned type** (`builder.OwnsOne`), stored inline on the `Employees` table as `Address_Street`/`Address_PostalCode`/`Address_City` — no separate table/repository, equality by value (DDD value object).
 - Dapper cannot map an owned-type navigation directly: `EmployeeRepository` uses multi-mapping (`QueryAsync<Employee, Address, Employee>`, `splitOn: "Street"`) with aliased columns, mirroring the pattern used by `WorkloadRepository` for `Customer`/`Employee`.
-- `/me` (`Features/Employee/Me`) is a self-service slice: `GetMeRequest`/`UpdateMeRequest` never take an `Id` from the client — the handler resolves the caller's own `Employee` exclusively via `IUserContext.UserId`, preventing IDOR/broken object-level authorization. Any authenticated user (any role) may call `/me`.
+- `/me` (`Features/Employee/Me`) is a self-service slice: requests never take an `Id` from the client — the handler resolves the caller's own `Employee` exclusively via `IUserContext.UserId`, preventing IDOR/broken object-level authorization. `UpdateMeRequest` does carry `RowVersion` for concurrency. Any authenticated user may call `/me`.
+
+---
+
+## Shared Contracts and Verification
+
+- Use `ApiRoutes`, `ApiRouteNames`, `ApiVersions`, authorization/rate-limit constants, typed option `SectionName` constants and domain constraint classes instead of duplicated contract values.
+- Use named GET routes plus `TypedResults.CreatedAtRoute`; versioned link generation uses `ApiVersions.V1RouteValue`.
+- Keep validators synchronized with EF column lengths through shared constraint classes.
+- After code changes, build the solution and run relevant tests. Security, database constraints, pagination, cancellation, concurrency and HTTP contracts require regression tests.
+- Performance changes require a measured baseline, profiler evidence, and a same-workload before/after comparison; do not optimize unmeasured assumptions.

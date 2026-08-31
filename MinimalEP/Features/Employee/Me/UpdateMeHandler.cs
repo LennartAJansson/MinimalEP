@@ -1,5 +1,7 @@
 namespace MinimalEP.Features.Employee.Me;
 
+using Microsoft.EntityFrameworkCore;
+
 using MinimalEP.Domain.Core;
 using MinimalEP.Features.Core;
 
@@ -18,8 +20,16 @@ public class UpdateMeHandler(IEmployeeRepository repository, IUserContext userCo
     if (employee is null)
       return new Result<GetMeResponse>.NotFound();
 
+    repository.SetOriginalRowVersion(employee, request.RowVersion);
     request.ApplyTo(employee);
-    await repository.SaveChangesAsync(cancellationToken);
+    try
+    {
+      await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+      return new Result<GetMeResponse>.Conflict("Your profile was changed by another request. Reload it and try again.");
+    }
 
     return new Result<GetMeResponse>.Ok(employee.ToGetMeResponse());
   }

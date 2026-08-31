@@ -1,3 +1,3 @@
 namespace MinimalEP.Features.Employee.GetEmployees;
 
-public record GetEmployeesRequest();
+public record GetEmployeesRequest(int? PageSize, Guid? After);

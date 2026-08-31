@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Employee.DeleteEmployee;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class DeleteEmployeeEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapDelete("/employees/{id}", async (
+    return builder.MapDelete(ApiRoutes.Employees.ById, async (
       Guid id,
       IRequestHandler<DeleteEmployeeRequest, Result<Unit>> handler,
       CancellationToken cancellationToken) =>
@@ -23,6 +24,6 @@ public class DeleteEmployeeEndpoint : IEndpoint
       };
 
       return httpResult;
-    });
+    }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

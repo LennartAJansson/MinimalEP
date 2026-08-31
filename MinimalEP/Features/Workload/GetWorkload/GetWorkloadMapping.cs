@@ -16,7 +16,8 @@ public static class GetWorkloadMapping
         workload.Employee.Name,
         workload.Start,
         workload.Stop,
-        workload.Comments);
+        workload.Comments,
+        workload.RowVersion);
     }
   }
 }

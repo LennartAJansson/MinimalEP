@@ -1,14 +1,17 @@
 namespace MinimalEP.Features.Auth.Register;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 using MinimalEP.Domain.Core;
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Data.Context;
 
 public class RegisterHandler(
   UserManager<ApplicationUser> userManager,
-  IEmployeeRepository employeeRepository)
+  IEmployeeRepository employeeRepository,
+  ApplicationDbContext context)
   : IRequestHandler<RegisterRequest, Result<RegisterResponse>>
 {
   public async Task<Result<RegisterResponse>> HandleAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -17,8 +20,9 @@ public class RegisterHandler(
     if (existing is not null)
       return new Result<RegisterResponse>.Conflict($"A user with email '{request.Email}' already exists.");
 
-    // Användarens Id och Employee-postens Id är samma —
-    // det är detta som kopplar ihop Identity med Employee i interceptorn och Workload.
+    await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+    // ApplicationUser and Employee intentionally share the same identity.
     var userId = Guid.CreateVersion7();
 
     var user = new ApplicationUser
@@ -35,15 +39,13 @@ public class RegisterHandler(
       return new Result<RegisterResponse>.Conflict(errors);
     }
 
-    // Den allra första registrerade användaren blir SuperAdmin + Admin + User, så det alltid
-    // finns minst ett konto som kan hantera roller. Alla senare registreringar blir bara User;
-    // ytterligare Admin/SuperAdmin-tilldelningar görs via AssignRole av en befintlig Admin/SuperAdmin.
-    var isFirstUser = userManager.Users.Count() == 1;
-    var rolesToAssign = isFirstUser ? Roles.All : [Roles.User];
+    var roleResult = await userManager.AddToRoleAsync(user, Roles.User);
+    if (!roleResult.Succeeded)
+    {
+      var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+      return new Result<RegisterResponse>.Conflict(errors);
+    }
 
-    await userManager.AddToRolesAsync(user, rolesToAssign);
-
-    // Skapa Employee-posten med samma Id som användaren
     var employee = new Employee
     {
       Id = userId,
@@ -59,11 +61,12 @@ public class RegisterHandler(
         PostalCode = request.PostalCode,
         City = request.City
       },
-      CreatedBy = userId  // Inget JWT finns vid registrering — sätt explicit
+      CreatedBy = userId  // Registration has no authenticated user context.
     };
 
     await employeeRepository.AddAsync(employee, cancellationToken);
     await employeeRepository.SaveChangesAsync(cancellationToken);
+    await transaction.CommitAsync(cancellationToken);
 
     return new Result<RegisterResponse>.Ok(new RegisterResponse(userId, user.Email!, employee.Name, employee.Position));
   }

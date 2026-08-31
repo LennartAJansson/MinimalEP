@@ -22,6 +22,8 @@ public class RefreshToken : BaseEntity
 	public required DateTimeOffset ExpiresAt { get; set; }
 	public DateTimeOffset? RevokedAt { get; set; }
 	public Guid? ReplacedByTokenId { get; set; }
+	public required Guid FamilyId { get; set; }
+	public byte[] RowVersion { get; set; } = [];
 
 	public bool IsActive => RevokedAt is null && ExpiresAt > DateTimeOffset.UtcNow;
 }
@@ -103,9 +105,17 @@ Spara refresh-tokenet **hashat** (SHA-256) som en ny `RefreshToken`-rad via `IRe
 ## Refresh token — rotation
 1. Validera det utgångna access-tokenet (`ValidateLifetime = false`) för att hämta `sub`
 2. Slå upp `RefreshToken`-raden via hash av det inskickade refresh-tokenet och kontrollera `IsActive`
-3. Om raden saknas/inte är aktiv → avvisa (`Conflict`) — detta fångar även reuse av redan roterade tokens
-4. Utfärda nytt access token + nytt refresh token
-5. Sätt `RevokedAt` + `ReplacedByTokenId` på den gamla raden, lägg till en ny `RefreshToken`-rad
+3. Om ett tidigare token återanvänds: återkalla hela tokenfamiljen och logga säkerhetshändelsen utan rå token eller e-postadress
+4. Utfärda nytt access token + nytt refresh token i samma familj
+5. Sätt `RevokedAt` + `ReplacedByTokenId` på den gamla raden, lägg till den nya raden och spara atomärt
+6. `RowVersion` skyddar parallell rotation; hantera `DbUpdateConcurrencyException` som ogiltigt/återanvänt token
+
+## Bootstrap, lockout och rate limiting
+- Publik registrering tilldelar alltid endast `User`.
+- SuperAdmin skapas bara av explicit `BootstrapAdminOptions`, som är disabled som default, startupvaliderad och tillåten endast i en tom installation.
+- Konto, roll och Employee skapas inom en explicit transaktion; kontrollera varje `IdentityResult` och rulla tillbaka vid fel.
+- Login använder Identity lockout (`lockoutOnFailure`) och auth-endpoints använder `RateLimitPolicies.Authentication`.
+- Skydda sista SuperAdmin och förbjud självdegradering.
 
 ## Auth-endpoints — AllowAnonymous
 ```csharp

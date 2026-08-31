@@ -3,13 +3,14 @@ namespace MinimalEP.Features.Customer.GetCustomer;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class GetCustomerEndpoint
   : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapGet("/customers/{id}", async (
+    return builder.MapGet(ApiRoutes.Customers.ById, async (
       Guid id,
       IRequestHandler<GetCustomerRequest, Result<GetCustomerResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -24,6 +25,6 @@ public class GetCustomerEndpoint
       };
 
       return httpResult;
-    });
+    }).WithName(ApiRouteNames.GetCustomer).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

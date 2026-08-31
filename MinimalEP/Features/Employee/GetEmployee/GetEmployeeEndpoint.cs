@@ -3,12 +3,13 @@ namespace MinimalEP.Features.Employee.GetEmployee;
 using System.Diagnostics;
 
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class GetEmployeeEndpoint : IEndpoint
 {
   public IEndpointConventionBuilder MapEndpoint(IEndpointRouteBuilder builder)
   {
-    return builder.MapGet("/employees/{id}", async (
+    return builder.MapGet(ApiRoutes.Employees.ById, async (
       Guid id,
       IRequestHandler<GetEmployeeRequest, Result<GetEmployeeResponse>> handler,
       CancellationToken cancellationToken) =>
@@ -23,6 +24,6 @@ public class GetEmployeeEndpoint : IEndpoint
       };
 
       return httpResult;
-    });
+    }).WithName(ApiRouteNames.GetEmployee).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

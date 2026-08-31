@@ -6,24 +6,28 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
+using MinimalEP.Infrastructure.Auth;
 
 public class RefreshTokenHandler(
   UserManager<ApplicationUser> userManager,
   IEmployeeRepository employeeRepository,
   IRefreshTokenRepository refreshTokenRepository,
   ITokenService tokenService,
-  IConfiguration configuration)
+  IOptions<JwtOptions> options,
+  ILogger<RefreshTokenHandler> logger)
   : IRequestHandler<RefreshTokenRequest, Result<RefreshTokenResponse>>
 {
   public async Task<Result<RefreshTokenResponse>> HandleAsync(RefreshTokenRequest request, CancellationToken cancellationToken)
   {
     // Validate the expired access token to extract the user id
-    var jwtSettings = configuration.GetSection("Jwt");
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
+    var jwtSettings = options.Value;
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
 
     var tokenHandler = new JwtSecurityTokenHandler
     {
@@ -40,9 +44,9 @@ public class RefreshTokenHandler(
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = key,
         ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
+        ValidIssuer = jwtSettings.Issuer,
         ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
+        ValidAudience = jwtSettings.Audience,
         ValidateLifetime = false   // Allow expired tokens when refreshing
       }, out _);
     }
@@ -69,19 +73,26 @@ public class RefreshTokenHandler(
 
     // Reuse detection: a token that has already been revoked/rotated but is presented again
     // indicates possible theft. Treat it as invalid rather than silently accepting it.
-    if (storedToken is null || storedToken.UserId != user.Id || !storedToken.IsActive)
+    if (storedToken is null)
       return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
+
+    if (storedToken.UserId != user.Id || !storedToken.IsActive)
+    {
+      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, DateTimeOffset.UtcNow, cancellationToken);
+      logger.LogWarning("Refresh-token reuse detected for family {TokenFamilyId}; the family was revoked.", storedToken.FamilyId);
+      return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
+    }
 
     var roles = await userManager.GetRolesAsync(user);
     var newAccessToken = tokenService.GenerateAccessToken(user, employee, roles);
     var newRefreshToken = tokenService.GenerateRefreshToken();
 
-    var expiresInDays = int.Parse(configuration["Jwt:RefreshTokenExpiresInDays"] ?? "7");
-    var expiresAt = DateTimeOffset.UtcNow.AddDays(expiresInDays);
+    var expiresAt = DateTimeOffset.UtcNow.AddDays(jwtSettings.RefreshTokenExpiresInDays);
 
     var newToken = new RefreshToken
     {
       UserId = user.Id,
+      FamilyId = storedToken.FamilyId,
       TokenHash = HashToken(newRefreshToken),
       ExpiresAt = expiresAt,
       CreatedBy = user.Id
@@ -92,7 +103,16 @@ public class RefreshTokenHandler(
     storedToken.ReplacedByTokenId = newToken.Id;
 
     await refreshTokenRepository.AddAsync(newToken, cancellationToken);
-    await refreshTokenRepository.SaveChangesAsync(cancellationToken);
+    try
+    {
+      await refreshTokenRepository.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, DateTimeOffset.UtcNow, cancellationToken);
+      logger.LogWarning("Concurrent refresh-token rotation detected for family {TokenFamilyId}; the family was revoked.", storedToken.FamilyId);
+      return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
+    }
 
     return new Result<RefreshTokenResponse>.Ok(new RefreshTokenResponse(
       newAccessToken,

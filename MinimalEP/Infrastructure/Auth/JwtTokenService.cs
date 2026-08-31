@@ -5,17 +5,19 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 
-public class JwtTokenService(IConfiguration configuration) : ITokenService
+public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
 {
+  private readonly JwtOptions settings = options.Value;
+
   public string GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles)
   {
-    var jwtSettings = configuration.GetSection("Jwt");
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Key));
     var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
     List<Claim> claims =
@@ -23,17 +25,17 @@ public class JwtTokenService(IConfiguration configuration) : ITokenService
       new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
       new(JwtRegisteredClaimNames.Email, user.Email!),
       new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
-      new("name", employee.Name),
-      new("age", employee.Age.ToString()),
-      new("position", employee.Position),
+      new(EmployeeClaimNames.Name, employee.Name),
+      new(EmployeeClaimNames.Age, employee.Age.ToString()),
+      new(EmployeeClaimNames.Position, employee.Position),
       .. roles.Select(r => new Claim(ClaimTypes.Role, r))
     ];
 
     var token = new JwtSecurityToken(
-      issuer: jwtSettings["Issuer"],
-      audience: jwtSettings["Audience"],
+      issuer: settings.Issuer,
+      audience: settings.Audience,
       claims: claims,
-      expires: DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["ExpiresInMinutes"]!)),
+      expires: DateTime.UtcNow.AddMinutes(settings.ExpiresInMinutes),
       signingCredentials: credentials);
 
     return new JwtSecurityTokenHandler().WriteToken(token);
@@ -41,7 +43,7 @@ public class JwtTokenService(IConfiguration configuration) : ITokenService
 
   public string GenerateRefreshToken()
   {
-    var bytes = RandomNumberGenerator.GetBytes(64);
+    var bytes = RandomNumberGenerator.GetBytes(AuthDefaults.RefreshTokenSizeBytes);
     return Convert.ToBase64String(bytes);
   }
 }

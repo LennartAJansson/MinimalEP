@@ -9,4 +9,5 @@ public record UpdateEmployeeRequest(
   string PhoneNumber,
   string Street,
   string PostalCode,
-  string City);
+  string City,
+  byte[] RowVersion);

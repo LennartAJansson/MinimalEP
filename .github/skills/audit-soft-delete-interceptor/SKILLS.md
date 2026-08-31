@@ -63,6 +63,7 @@ Varje `IEntityTypeConfiguration<T>` måste ha:
 builder.HasQueryFilter(x => x.Deleted == null);
 ```
 Dapper-queries filtrerar manuellt med `WHERE Deleted IS NULL`.
+Vid joins måste även soft-deletade relaterade entiteter filtreras explicit.
 
 ## DI-registrering — Singleton krävs
 ```csharp
@@ -83,3 +84,10 @@ Sätt `CreatedBy` explicit **före** `SaveChanges`:
 ```csharp
 employee.CreatedBy = userId;   // interceptorn använder ??= och skriver inte över
 ```
+
+## Concurrency boundary
+`RowVersion` hör inte hemma på `BaseEntity`, eftersom inte alla tabeller är redigerbara på samma sätt.
+`Customer`, `Employee` och `Workload` deklarerar var sin `byte[] RowVersion` och konfigurerar den med `.IsRowVersion()`.
+Audit-interceptorn ska inte skriva eller regenerera `RowVersion`; SQL Server ansvarar för värdet.
+
+Vid update används klientens senast lästa token som EF Core original value. En stale write ger `DbUpdateConcurrencyException` och mappas till `409 Conflict` i respektive slice.

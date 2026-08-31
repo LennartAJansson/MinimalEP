@@ -94,14 +94,19 @@ using Microsoft.OpenApi;          // SecuritySchemeType, ReferenceType
 
 ## Scalar in Program.cs
 ```csharp
-app.MapScalarApiReference(options =>
+if (app.Environment.IsDevelopment())
 {
-	options.WithTitle("My API")
-		   .WithTheme(ScalarTheme.DeepSpace)
-		   .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-});
-app.MapOpenApi().WithDocumentPerVersion();
+	app.MapOpenApi().WithDocumentPerVersion();
+	app.MapScalarApiReference(options =>
+	{
+		options.WithTitle("MinimalEP API")
+			.WithTheme(ScalarTheme.DeepSpace)
+			.WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+	});
+}
 ```
 
 ## Notes
 - Scalar works with HTTP if the HTTPS profile causes issues in managed/corporate environments
+- Versioned endpoints are `/openapi/v1.json` for JSON and `/scalar/v1` for Scalar
+- Keep OpenAPI/Scalar development-only unless an explicit production exposure decision is made

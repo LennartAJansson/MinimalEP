@@ -1,10 +1,12 @@
 namespace MinimalEP.Infrastructure.Auth;
 
 using System.Text;
+using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 using MinimalEP.Domain.Core;
@@ -18,21 +20,32 @@ public static class AuthExtensions
   {
     public IServiceCollection AddApplicationAuth(IConfiguration configuration)
     {
-      // 1. Identity med Guid-nycklar, sparar i vår befintliga ApplicationDbContext
+      services.AddOptions<JwtOptions>()
+        .Bind(configuration.GetRequiredSection(JwtOptions.SectionName))
+        .ValidateDataAnnotations()
+        .ValidateOnStart();
+
+      services.AddSingleton<IValidateOptions<BootstrapAdminOptions>, BootstrapAdminOptionsValidator>();
+      services.AddOptions<BootstrapAdminOptions>()
+        .Bind(configuration.GetRequiredSection(BootstrapAdminOptions.SectionName))
+        .ValidateOnStart();
+
       services
         .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
         {
           options.Password.RequireDigit = true;
-          options.Password.RequiredLength = 8;
+          options.Password.RequiredLength = AuthDefaults.PasswordMinimumLength;
           options.Password.RequireNonAlphanumeric = false;
           options.User.RequireUniqueEmail = true;
+          options.Lockout.AllowedForNewUsers = true;
+          options.Lockout.MaxFailedAccessAttempts = AuthDefaults.MaxFailedAccessAttempts;
+          options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(AuthDefaults.LockoutMinutes);
         })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
-      // 2. JWT-autentisering
-      var jwtSettings = configuration.GetSection("Jwt");
-      var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+      var jwtSettings = configuration.GetRequiredSection(JwtOptions.SectionName).Get<JwtOptions>()!;
+      var key = Encoding.UTF8.GetBytes(jwtSettings.Key);
 
       services
         .AddAuthentication(options =>
@@ -53,18 +66,32 @@ public static class AuthExtensions
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ClockSkew = TimeSpan.Zero
           };
         });
 
       services.AddAuthorizationBuilder()
-        .AddPolicy("SuperAdminOnly", p => p.RequireRole(Roles.SuperAdmin))
-        .AddPolicy("AdminOrAbove", p => p.RequireRole(Roles.SuperAdmin, Roles.Admin));
+        .AddPolicy(AuthorizationPolicies.SuperAdminOnly, p => p.RequireRole(Roles.SuperAdmin))
+        .AddPolicy(AuthorizationPolicies.AdminOrAbove, p => p.RequireRole(Roles.SuperAdmin, Roles.Admin));
 
-      // 3. Token-tjänst
+      services.AddRateLimiter(options =>
+      {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy(RateLimitPolicies.Authentication, httpContext =>
+          RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+              PermitLimit = AuthDefaults.RateLimitPermitCount,
+              Window = TimeSpan.FromMinutes(AuthDefaults.RateLimitWindowMinutes),
+              QueueLimit = 0,
+              AutoReplenishment = true
+            }));
+      });
+
       services.AddScoped<ITokenService, JwtTokenService>();
 
       return services;

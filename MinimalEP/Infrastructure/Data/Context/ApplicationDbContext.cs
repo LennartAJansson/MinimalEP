@@ -1,4 +1,4 @@
-﻿namespace MinimalEP.Infrastructure.Data.Context;
+namespace MinimalEP.Infrastructure.Data.Context;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -22,7 +22,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
   {
     base.OnModelCreating(modelBuilder);
 
-    // Hittar och applicerar alla IEntityTypeConfiguration automatiskt
     modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
   }
 }

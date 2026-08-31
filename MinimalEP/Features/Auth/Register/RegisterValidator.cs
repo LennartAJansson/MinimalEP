@@ -2,19 +2,22 @@ namespace MinimalEP.Features.Auth.Register;
 
 using FluentValidation;
 
+using MinimalEP.Domain.Model;
+using MinimalEP.Infrastructure.Auth;
+
 public class RegisterValidator : AbstractValidator<RegisterRequest>
 {
   public RegisterValidator()
   {
-    RuleFor(x => x.Email).NotEmpty().EmailAddress().WithMessage("A valid email is required.");
-    RuleFor(x => x.Password).NotEmpty().MinimumLength(8).WithMessage("Password must be at least 8 characters.");
-    RuleFor(x => x.GivenName).NotEmpty().WithMessage("GivenName is required.");
-    RuleFor(x => x.Surname).NotEmpty().WithMessage("Surname is required.");
-    RuleFor(x => x.Age).InclusiveBetween(16, 100).WithMessage("Age must be between 16 and 100.");
-    RuleFor(x => x.Position).NotEmpty().WithMessage("Position is required.");
-    RuleFor(x => x.PhoneNumber).NotEmpty().WithMessage("PhoneNumber is required.");
-    RuleFor(x => x.Street).NotEmpty().WithMessage("Street is required.");
-    RuleFor(x => x.PostalCode).NotEmpty().WithMessage("PostalCode is required.");
-    RuleFor(x => x.City).NotEmpty().WithMessage("City is required.");
+    RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(EmployeeConstraints.EmailMaxLength);
+    RuleFor(x => x.Password).NotEmpty().MinimumLength(AuthDefaults.PasswordMinimumLength);
+    RuleFor(x => x.GivenName).NotEmpty().MaximumLength(EmployeeConstraints.NameMaxLength);
+    RuleFor(x => x.Surname).NotEmpty().MaximumLength(EmployeeConstraints.NameMaxLength);
+    RuleFor(x => x.Age).InclusiveBetween(EmployeeConstraints.MinimumAge, EmployeeConstraints.MaximumAge);
+    RuleFor(x => x.Position).NotEmpty().MaximumLength(EmployeeConstraints.PositionMaxLength);
+    RuleFor(x => x.PhoneNumber).NotEmpty().MaximumLength(EmployeeConstraints.PhoneNumberMaxLength);
+    RuleFor(x => x.Street).NotEmpty().MaximumLength(EmployeeConstraints.StreetMaxLength);
+    RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(EmployeeConstraints.PostalCodeMaxLength);
+    RuleFor(x => x.City).NotEmpty().MaximumLength(EmployeeConstraints.CityMaxLength);
   }
 }
