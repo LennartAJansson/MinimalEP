@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/Docs/" />
+  <Folder Name="/Docs/">
+    <File Path="docs/architecture-and-technical-review.md" />
+  </Folder>
   <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
   <Project Path="MinimalEP.Tests/MinimalEP.Tests.csproj" />
   <Project Path="MinimalEP/MinimalEP.csproj" />
