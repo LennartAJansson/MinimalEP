@@ -23,6 +23,7 @@ public sealed class MinimalEpApplicationFactory : WebApplicationFactory<Program>
       .UseSetting("Jwt:Audience", "MinimalEP.Tests")
       .UseSetting("Jwt:ExpiresInMinutes", "5")
       .UseSetting("Jwt:RefreshTokenExpiresInDays", "1")
+      .UseSetting("Cors:AllowedOrigins:0", "http://localhost:4200")
       .UseSetting("BootstrapAdmin:Enabled", "false")
       .UseSetting("Database:ApplyMigrationsOnStartup", "true");
     builder.ConfigureTestServices(services =>

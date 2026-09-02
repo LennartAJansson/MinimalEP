@@ -85,4 +85,20 @@ public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     Assert.Matches("^https://localhost/api/v1/customers/[0-9a-f-]+$", response.Headers.Location?.ToString());
   }
+
+  [Fact]
+  public async Task Angular_origin_can_preflight_the_login_endpoint()
+  {
+    using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+    using var request = new HttpRequestMessage(HttpMethod.Options, "/api/v1/auth/login");
+    request.Headers.Add("Origin", "http://localhost:4200");
+    request.Headers.Add("Access-Control-Request-Method", "POST");
+    request.Headers.Add("Access-Control-Request-Headers", "content-type");
+
+    using var response = await client.SendAsync(request, CancellationToken.None);
+
+    Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    Assert.Equal("http://localhost:4200", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+    Assert.Contains("POST", response.Headers.GetValues("Access-Control-Allow-Methods"));
+  }
 }

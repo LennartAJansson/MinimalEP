@@ -7,6 +7,7 @@ using Scalar.AspNetCore;
 
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
+using MinimalEP.Infrastructure.Cors;
 using MinimalEP.Infrastructure.Data.Core;
 using MinimalEP.Infrastructure.Observability;
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +30,7 @@ builder.Services
 
 builder.Services
   .AddEndpoints(typeof(Program))
+  .AddApplicationCors(builder.Configuration)
   .AddApplicationData(builder.Configuration)
   .AddApplicationAuth(builder.Configuration)
   .AddJwtOpenApi()
@@ -55,6 +57,7 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors(CorsOptions.PolicyName);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
