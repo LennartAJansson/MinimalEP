@@ -1,7 +1,8 @@
-﻿namespace MinimalEP.Features.Core;
+namespace MinimalEP.Features.Core;
 
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 public class ValidationFilter<TRequest> 
   : IEndpointFilter
@@ -10,9 +11,8 @@ public class ValidationFilter<TRequest>
   public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
   {
     // 1. Find the argument matching TRequest
-    var request = context.Arguments.FirstOrDefault(x => x is TRequest) as TRequest;
 
-    if (request is null)
+    if (context.Arguments.FirstOrDefault(x => x is TRequest) is not TRequest request)
     {
       return await next(context);
     }
@@ -28,8 +28,15 @@ public class ValidationFilter<TRequest>
 
       if (!validationResult.IsValid)
       {
-        // Return HTTP 400 Bad Request with FluentValidation error details
-        return Results.ValidationProblem(validationResult.ToDictionary());
+        var problem = new HttpValidationProblemDetails(validationResult.ToDictionary())
+        {
+          Status = StatusCodes.Status400BadRequest,
+          Title = "Validation failed.",
+          Detail = "One or more validation errors occurred."
+        };
+        problem.Extensions["code"] = ResultErrorCodes.ValidationFailed;
+
+        return TypedResults.Problem(problem);
       }
     }
 

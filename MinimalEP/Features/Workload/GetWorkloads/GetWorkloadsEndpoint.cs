@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Workload.GetWorkloads;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 
 public class GetWorkloadsEndpoint : IEndpoint
@@ -18,12 +16,7 @@ public class GetWorkloadsEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(new GetWorkloadsRequest(customerId, employeeId, pageSize, after), cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<GetWorkloadsResponse>.Ok ok => TypedResults.Ok(ok.Value),
-        _ => throw new UnreachableException()
-      };
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     });
   }
 }

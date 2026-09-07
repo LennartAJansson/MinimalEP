@@ -20,10 +20,14 @@ public class UpdateWorkloadHandler(IWorkloadRepository repository, IUserContext 
       return new Result<UpdateWorkloadResponse>.NotFound();
 
     repository.SetOriginalRowVersion(workload, request.RowVersion);
-    request.ApplyTo(workload);
     try
     {
+      request.ApplyTo(workload);
       await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (InvalidOperationException exception)
+    {
+      return new Result<UpdateWorkloadResponse>.Conflict(exception.Message);
     }
     catch (DbUpdateConcurrencyException)
     {

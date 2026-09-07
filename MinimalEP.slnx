@@ -1,8 +1,11 @@
 <Solution>
   <Folder Name="/Docs/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="docs/actionplan.md" />
     <File Path="docs/architecture-and-technical-review.md" />
   </Folder>
-  <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
+  <Project Path="BenchmarkSuite/BenchmarkSuite.csproj" />
   <Project Path="MinimalEP.Tests/MinimalEP.Tests.csproj" />
   <Project Path="MinimalEP/MinimalEP.csproj" />
 </Solution>

@@ -7,7 +7,7 @@ using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Data.Context;
 
-[Collection(IntegrationCollection.Name)]
+[Collection(IntegrationTestFixture.Name)]
 public sealed class DatabaseIntegrationTests(MinimalEpApplicationFactory factory)
 {
   [Fact]
@@ -146,6 +146,49 @@ public sealed class DatabaseIntegrationTests(MinimalEpApplicationFactory factory
       secondContext.SaveChangesAsync(CancellationToken.None));
   }
 
+  [Fact]
+  public async Task Refresh_token_cleanup_deletes_inactive_tokens_older_than_cutoff()
+  {
+    await using var scope = factory.Services.CreateAsyncScope();
+    var repository = scope.ServiceProvider.GetRequiredService<IRefreshTokenRepository>();
+
+    var now = DateTimeOffset.UtcNow;
+    await repository.AddAsync(new RefreshToken
+    {
+      UserId = Guid.CreateVersion7(),
+      FamilyId = Guid.CreateVersion7(),
+      TokenHash = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+      ExpiresAt = now.AddDays(-60),
+      RevokedAt = null
+    }, CancellationToken.None);
+
+    await repository.AddAsync(new RefreshToken
+    {
+      UserId = Guid.CreateVersion7(),
+      FamilyId = Guid.CreateVersion7(),
+      TokenHash = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+      ExpiresAt = now.AddDays(10),
+      RevokedAt = now.AddDays(-40)
+    }, CancellationToken.None);
+
+    await repository.AddAsync(new RefreshToken
+    {
+      UserId = Guid.CreateVersion7(),
+      FamilyId = Guid.CreateVersion7(),
+      TokenHash = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+      ExpiresAt = now.AddDays(10),
+      RevokedAt = null
+    }, CancellationToken.None);
+
+    await repository.SaveChangesAsync(CancellationToken.None);
+
+    var deleted = await repository.DeleteInactiveOlderThanAsync(now.AddDays(-30), CancellationToken.None);
+    var remaining = await repository.CountAsync(CancellationToken.None);
+
+    Assert.Equal(2, deleted);
+    Assert.Equal(1, remaining);
+  }
+
   private static Customer CreateCustomer()
   {
     var id = Guid.CreateVersion7();
@@ -168,10 +211,6 @@ public sealed class DatabaseIntegrationTests(MinimalEpApplicationFactory factory
     };
   }
 
-  private static Workload CreateOpenWorkload(Guid customerId, Guid employeeId) => new()
-  {
-    CustomerId = customerId,
-    EmployeeId = employeeId,
-    Start = DateTimeOffset.UtcNow
-  };
+  private static Workload CreateOpenWorkload(Guid customerId, Guid employeeId)
+    => Workload.StartNew(customerId, employeeId, DateTimeOffset.UtcNow, comments: null);
 }

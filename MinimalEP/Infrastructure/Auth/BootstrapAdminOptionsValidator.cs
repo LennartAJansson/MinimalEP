@@ -13,7 +13,7 @@ public sealed class BootstrapAdminOptionsValidator : IValidateOptions<BootstrapA
     if (!options.Enabled)
       return ValidateOptionsResult.Success;
 
-    var missing = new List<string>();
+    List<string> missing = [];
     AddIfMissing(options.Email, nameof(options.Email), missing);
     AddIfMissing(options.Password, nameof(options.Password), missing);
     AddIfMissing(options.GivenName, nameof(options.GivenName), missing);
@@ -47,13 +47,13 @@ public sealed class BootstrapAdminOptionsValidator : IValidateOptions<BootstrapA
       : ValidateOptionsResult.Fail(missing);
   }
 
-  private static void AddIfMissing(string value, string propertyName, ICollection<string> failures)
+  private static void AddIfMissing(string value, string propertyName, List<string> failures)
   {
     if (string.IsNullOrWhiteSpace(value))
       failures.Add($"{propertyName} is required");
   }
 
-  private static void AddIfTooLong(string value, int maximumLength, string propertyName, ICollection<string> failures)
+  private static void AddIfTooLong(string value, int maximumLength, string propertyName, List<string> failures)
   {
     if (value.Length > maximumLength)
       failures.Add($"{propertyName} must not exceed {maximumLength} characters");

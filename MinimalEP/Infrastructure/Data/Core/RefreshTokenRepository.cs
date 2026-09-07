@@ -8,18 +8,31 @@ using MinimalEP.Infrastructure.Data.Context;
 
 public class RefreshTokenRepository(ApplicationDbContext context) : IRefreshTokenRepository
 {
-  // Tracked query — refresh-token rotation always needs to update (revoke) the returned entity.
   public async Task<RefreshToken?> GetActiveByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
   {
     return await context.RefreshTokens
-        .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.Deleted == null, cancellationToken);
+      .FirstOrDefaultAsync(x => x.TokenHash == tokenHash && x.Deleted == null, cancellationToken);
   }
 
   public async Task RevokeFamilyAsync(Guid familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
   {
     await context.RefreshTokens
-        .Where(x => x.FamilyId == familyId && x.RevokedAt == null)
-        .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.RevokedAt, revokedAt), cancellationToken);
+      .Where(x => x.FamilyId == familyId && x.RevokedAt == null)
+      .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.RevokedAt, revokedAt), cancellationToken);
+  }
+
+  public async Task<int> DeleteInactiveOlderThanAsync(DateTimeOffset cutoff, CancellationToken cancellationToken)
+  {
+    return await context.RefreshTokens
+      .Where(x =>
+        (x.RevokedAt != null && x.RevokedAt < cutoff)
+        || (x.RevokedAt == null && x.ExpiresAt < cutoff))
+      .ExecuteDeleteAsync(cancellationToken);
+  }
+
+  public async Task<int> CountAsync(CancellationToken cancellationToken)
+  {
+    return await context.RefreshTokens.CountAsync(cancellationToken);
   }
 
   public async Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken)

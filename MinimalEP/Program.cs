@@ -18,7 +18,6 @@ builder.Services.AddProblemDetails();
 builder.Services
   .AddApiVersioning(options =>
   {
-    options.DefaultApiVersion = new ApiVersion(ApiVersions.V1);
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
   })
   .AddApiExplorer(options =>
@@ -86,4 +85,4 @@ app.MapEndpoints(versionedGroup);
 
 app.Run();
 
-public partial class Program;
+

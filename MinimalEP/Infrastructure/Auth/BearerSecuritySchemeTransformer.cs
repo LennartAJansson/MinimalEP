@@ -23,7 +23,7 @@ public sealed class BearerSecuritySchemeTransformer(
       Type = SecuritySchemeType.Http,
       Scheme = "bearer",
       BearerFormat = "JWT",
-      Description = "Ange din JWT-token (utan 'Bearer '-prefix)."
+      Description = "Enter your JWT token (without the 'Bearer ' prefix)."
     };
 
     document.Components ??= new OpenApiComponents();

@@ -1,17 +1,17 @@
-using Microsoft.VSDiagnostics;
-
-namespace MinimalEP.Benchmarks;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.VSDiagnostics;
 using MinimalEP.Domain.Model;
 using MinimalEP.Infrastructure.Data.Context;
 using MinimalEP.Infrastructure.Data.Core;
 
+namespace BenchmarkSuite;
+
 [SimpleJob(RuntimeMoniker.Net10_0, warmupCount: 1, iterationCount: 3)]
 [CPUUsageDiagnoser]
-public class RepositoryReadBenchmarks
+public class RepositoryReadBenchmarks : IAsyncDisposable
 {
     private const string DatabaseName = "MinimalEP_Benchmarks";
     private string connectionString = null!;
@@ -34,11 +34,20 @@ public class RepositoryReadBenchmarks
         context.AddRange(employees);
         await context.SaveChangesAsync();
         historyEmployeeId = employees[0].Id;
-        var workloads = Enumerable.Range(0, 10_000).Select(i => new Workload { CustomerId = customers[i % customers.Length].Id, EmployeeId = historyEmployeeId, Start = DateTimeOffset.UtcNow.AddHours(-i - 1), Stop = DateTimeOffset.UtcNow.AddHours(-i), Comments = "Benchmark" });
+        var now = DateTimeOffset.UtcNow;
+        var workloads = Enumerable.Range(0, 10_000).Select(i =>
+        {
+            var workload = Workload.StartNew(customers[i % customers.Length].Id, historyEmployeeId, now.AddHours(-i - 1), "Benchmark");
+            workload.StopAt(now.AddHours(-i));
+            return workload;
+        });
         context.Workloads.AddRange(workloads);
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = connectionString }).Build();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>("ConnectionStrings:DefaultConnection", connectionString)
+        ]).Build();
         var connectionFactory = new SqlConnectionFactory(configuration);
         customerRepository = new CustomerRepository(context, connectionFactory);
         employeeRepository = new EmployeeRepository(context, connectionFactory);
@@ -56,7 +65,17 @@ public class RepositoryReadBenchmarks
     [GlobalCleanup]
     public async Task Cleanup()
     {
+        await DisposeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context is null)
+            return;
+
         await context.Database.EnsureDeletedAsync();
         await context.DisposeAsync();
+        context = null!;
+        GC.SuppressFinalize(this);
     }
 }

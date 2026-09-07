@@ -1,7 +1,7 @@
 # Audit & Soft Delete — EF Core Interceptor
 
-## Syfte
-Centraliserad hantering av audit-fält och mjuk radering via en `SaveChangesInterceptor`. Ingen logik sprids i handlers.
+## Purpose
+Centralized handling of audit fields and soft deletion via a `SaveChangesInterceptor`. No logic is scattered across handlers.
 
 ## BaseEntity
 ```csharp
@@ -17,7 +17,7 @@ public class BaseEntity
 }
 ```
 
-## Interceptor — kärnlogik
+## Interceptor — core logic
 ```csharp
 public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor accessor) : SaveChangesInterceptor
 {
@@ -38,7 +38,7 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor accessor) : Save
 			{
 				case EntityState.Added:
 					entry.Entity.Created   = now;
-					entry.Entity.CreatedBy ??= userId;   // ??= respekterar explicit satt värde
+					entry.Entity.CreatedBy ??= userId;   // ??= respects an explicitly set value
 					break;
 
 				case EntityState.Modified:
@@ -46,7 +46,7 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor accessor) : Save
 					entry.Entity.UpdatedBy = userId;
 					break;
 
-				case EntityState.Deleted:                // Konvertera till mjuk radering
+				case EntityState.Deleted:                // Convert to soft delete
 					entry.State            = EntityState.Modified;
 					entry.Entity.Deleted   = now;
 					entry.Entity.DeletedBy = userId;
@@ -57,37 +57,37 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor accessor) : Save
 }
 ```
 
-## EF Core — HasQueryFilter (obligatoriskt)
-Varje `IEntityTypeConfiguration<T>` måste ha:
+## EF Core — HasQueryFilter (mandatory)
+Every `IEntityTypeConfiguration<T>` must include:
 ```csharp
 builder.HasQueryFilter(x => x.Deleted == null);
 ```
-Dapper-queries filtrerar manuellt med `WHERE Deleted IS NULL`.
-Vid joins måste även soft-deletade relaterade entiteter filtreras explicit.
+Dapper queries filter manually with `WHERE Deleted IS NULL`.
+With joins, soft-deleted related entities must also be filtered explicitly.
 
-## DI-registrering — Singleton krävs
+## DI registration — Singleton required
 ```csharp
 services.AddSingleton<AuditAndSoftDeleteInterceptor>();
 services.AddDbContextPool<ApplicationDbContext>((sp, options) =>
 {
 	var interceptor = sp.GetRequiredService<AuditAndSoftDeleteInterceptor>();
 	options.UseSqlServer(connectionString)
-		   .AddInterceptors(interceptor);
+			 .AddInterceptors(interceptor);
 });
 ```
-**Singleton krävs** — `AddDbContextPool` löser interceptorn från root-provider. En scoped interceptor kastar `InvalidOperationException`.
-`IHttpContextAccessor` är trådsäker att hålla i en singleton.
+**Singleton required** — `AddDbContextPool` resolves the interceptor from the root provider. A scoped interceptor throws `InvalidOperationException`.
+`IHttpContextAccessor` is thread-safe to hold in a singleton.
 
-## Registrering utan JWT (t.ex. vid registrering)
-Vid registrering finns inget JWT — interceptorn kan inte lösa UserId från `sub`-claim.
-Sätt `CreatedBy` explicit **före** `SaveChanges`:
+## Registration without a JWT (e.g. during registration)
+During registration there is no JWT — the interceptor cannot resolve UserId from the `sub` claim.
+Set `CreatedBy` explicitly **before** `SaveChanges`:
 ```csharp
-employee.CreatedBy = userId;   // interceptorn använder ??= och skriver inte över
+employee.CreatedBy = userId;   // the interceptor uses ??= and will not overwrite it
 ```
 
 ## Concurrency boundary
-`RowVersion` hör inte hemma på `BaseEntity`, eftersom inte alla tabeller är redigerbara på samma sätt.
-`Customer`, `Employee` och `Workload` deklarerar var sin `byte[] RowVersion` och konfigurerar den med `.IsRowVersion()`.
-Audit-interceptorn ska inte skriva eller regenerera `RowVersion`; SQL Server ansvarar för värdet.
+`RowVersion` does not belong on `BaseEntity`, since not all tables are editable in the same way.
+`Customer`, `Employee` and `Workload` each declare their own `byte[] RowVersion` and configure it with `.IsRowVersion()`.
+The audit interceptor must not write or regenerate `RowVersion`; SQL Server owns the value.
 
-Vid update används klientens senast lästa token som EF Core original value. En stale write ger `DbUpdateConcurrencyException` och mappas till `409 Conflict` i respektive slice.
+On update, the client's last-read token is used as the EF Core original value. A stale write produces `DbUpdateConcurrencyException` and is mapped to `409 Conflict` in the respective slice.

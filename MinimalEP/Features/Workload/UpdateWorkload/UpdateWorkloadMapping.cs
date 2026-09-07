@@ -7,10 +7,7 @@ public static class UpdateWorkloadMapping
   extension(UpdateWorkloadRequest request)
   {
     public void ApplyTo(Workload workload)
-    {
-      workload.Start = request.Start;
-      workload.Comments = request.Comments;
-    }
+      => workload.UpdateDetails(request.Start, request.Comments);
   }
 
   extension(Workload workload)

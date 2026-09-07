@@ -1,14 +1,14 @@
 # Vertical Slice Architecture — Minimal API
 
-## Syfte
-Varje use case är en självständig "skiva" genom alla lager — request in, response ut. Inga delade services mellan slices.
+## Purpose
+Each use case is a self-contained slice through all layers — request in, response out. No shared services between slices.
 
-## Filstruktur per slice
+## File structure per slice
 ```
 Features/{Aggregate}/{UseCase}/
   {UseCase}Request.cs
   {UseCase}Response.cs
-  {UseCase}Validator.cs     ← utelämnas om ingen validering behövs
+  {UseCase}Validator.cs     ← omitted when no validation is needed
   {UseCase}Mapping.cs
   {UseCase}Handler.cs
   {UseCase}Endpoint.cs
@@ -35,7 +35,7 @@ public class AddCustomerValidator : AbstractValidator<AddCustomerRequest>
 	}
 }
 ```
-Registreras automatiskt via `AddValidatorsFromAssemblyContaining`. Körs av `ValidationFilter<T>` — returnerar `400 ValidationProblem` vid fel.
+Registered automatically via `AddValidatorsFromAssemblyContaining`. Executed by `ValidationFilter<T>` — returns `400 ValidationProblem` on failure.
 
 ## Mapping (C# 14 extension blocks)
 ```csharp

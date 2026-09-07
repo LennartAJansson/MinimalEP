@@ -25,10 +25,14 @@ Content-Type: application/json
 GET {{baseUrl}}/me
 Authorization: Bearer {{accessToken}}
 
-### Expect: 200 Ok — the caller's own Employee profile (GivenName, Surname, Address, ...)
+### Expect: 200 Ok — the caller's own Employee profile
+### body: { id, email, name, age, position, phoneNumber, street, postalCode, city, rowVersion }
+
+@myRowVersion = {{getMe.response.body.rowVersion}}
 
 ### ============================================================
 ### SCENARIO: Update my own profile via /me (self-service, no Id needed)
+### Requires the last-read RowVersion for optimistic concurrency.
 ### ============================================================
 
 PUT {{baseUrl}}/me
@@ -43,10 +47,11 @@ Content-Type: application/json
   "phoneNumber": "+46709999999",
   "street": "Drottninggatan 5",
   "postalCode": "11151",
-  "city": "Stockholm"
+  "city": "Stockholm",
+  "rowVersion": "{{myRowVersion}}"
 }
 
-### Expect: 200 Ok — updated profile reflects the new Surname/Position/Address
+### Expect: 200 Ok — updated profile; stale/missing RowVersion -> 409 Conflict
 
 ### ============================================================
 ### SCENARIO: Calling /me without a token -> 401
@@ -64,7 +69,7 @@ GET {{baseUrl}}/me
 GET {{baseUrl}}/employees
 Authorization: Bearer {{accessToken}}
 
-### Expect: 200 Ok — list of employees (includes the self-registered SuperAdmin)
+### Expect: 200 Ok — body: { items: [...], nextCursor: guid|null } (paginated)
 
 @firstEmployeeId = {{getEmployees.response.body.items[0].id}}
 

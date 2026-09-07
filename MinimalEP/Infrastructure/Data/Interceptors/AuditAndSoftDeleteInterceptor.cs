@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 using MinimalEP.Domain.Model;
 
-public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor httpContextAccessor)
+public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider)
   : SaveChangesInterceptor
 {
   private Guid? CurrentUserId
@@ -44,7 +44,7 @@ public class AuditAndSoftDeleteInterceptor(IHttpContextAccessor httpContextAcces
     if (context is null)
       return;
 
-    var now = DateTimeOffset.UtcNow;
+    var now = timeProvider.GetUtcNow();
     var currentUserId = CurrentUserId;
 
     foreach (var entry in context.ChangeTracker.Entries<BaseEntity>())

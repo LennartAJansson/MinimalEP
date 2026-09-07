@@ -11,7 +11,7 @@ using MinimalEP.Infrastructure.Data.Context;
 
 // Idempotent role seeding — ensures the well-known roles exist before the app accepts requests.
 // Run once at startup (see Program.cs) via a scope, since RoleManager is scoped.
-public static class RoleSeeder
+public static partial class RoleSeeder
 {
   // Applies any pending EF Core migrations, creating the database if it does not exist yet.
   // Safe to call on every startup — Migrate() is a no-op when the schema is already current.
@@ -91,6 +91,12 @@ public static class RoleSeeder
     await context.SaveChangesAsync();
     await transaction.CommitAsync();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(RoleSeeder));
-    logger.LogInformation("Bootstrap SuperAdmin {UserId} was created.", userId);
+    BootstrapSuperAdminCreated(logger, userId);
   }
+
+  [LoggerMessage(
+    EventId = 2001,
+    Level = LogLevel.Information,
+    Message = "Bootstrap SuperAdmin {UserId} was created.")]
+  private static partial void BootstrapSuperAdminCreated(ILogger logger, Guid userId);
 }

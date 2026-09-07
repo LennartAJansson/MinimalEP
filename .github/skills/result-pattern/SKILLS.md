@@ -1,7 +1,7 @@
-# Result Pattern — Typat utfallshantering
+# Result Pattern — Typed Outcome Handling
 
-## Syfte
-Typat diskriminerat fackförbund som ersätter exceptions och nullable returns för förväntade utfall. Handlers returnerar alltid `Result<T>` — endpoints matchar mot HTTP-statuskoder.
+## Purpose
+A typed discriminated union that replaces exceptions and nullable returns for expected outcomes. Handlers always return `Result<T>` — endpoints match it to HTTP status codes.
 
 ## Definition
 ```csharp
@@ -12,19 +12,19 @@ public abstract record Result<T>
 	public sealed record Conflict(string Message) : Result<T>;
 }
 
-// Används som TResponse när ingen data returneras (t.ex. Delete)
+// Used as TResponse when no data is returned (e.g. Delete)
 public record struct Unit
 {
 	public static readonly Unit Value = new();
 }
 ```
 
-## Handler — returnera Result
+## Handler — return a Result
 ```csharp
-// Hittades inte
+// Not found
 return new Result<CustomerResponse>.NotFound();
 
-// Konflikt (dubblett, affärsregel)
+// Conflict (duplicate, business rule)
 return new Result<CustomerResponse>.Conflict("Email already exists.");
 
 // Optimistic concurrency
@@ -34,11 +34,11 @@ catch (DbUpdateConcurrencyException)
 		"The resource was changed by another request. Reload it and try again.");
 }
 
-// Lyckat
+// Success
 return new Result<CustomerResponse>.Ok(customer.ToResponse());
 ```
 
-## Endpoint — matcha till HTTP
+## Endpoint — match to HTTP
 ```csharp
 IResult httpResult = result switch
 {
@@ -59,9 +59,9 @@ return new Result<Unit>.Ok(Unit.Value);
 Result<Unit>.Ok => TypedResults.NoContent(),
 ```
 
-## Viktigt
-- Tilldela alltid till `IResult`-variabel — löser kompilatorns delegate-tvetydighet när `TypedResults`-subtyper skiljer sig
-- `UnreachableException` i `_`-armen garanterar att nya Result-case inte tyst ignoreras
-- Lägg till nya case i `Result<T>` (t.ex. `Unauthorized`, `Forbidden`) efter behov
-- Förväntade optimistic-concurrency-konflikter mappas till `409 Conflict`; låt inte `DbUpdateConcurrencyException` bli ett generiskt 500-svar
-- Central `UseExceptionHandler`/Problem Details hanterar oväntade fel, inte normala domänutfall
+## Important
+- Always assign to an `IResult` variable — resolves the compiler's delegate ambiguity when `TypedResults` subtypes differ
+- `UnreachableException` in the `_` arm guarantees that new Result cases are not silently ignored
+- Add new cases to `Result<T>` (e.g. `Unauthorized`, `Forbidden`) as needed
+- Expected optimistic-concurrency conflicts map to `409 Conflict`; do not let `DbUpdateConcurrencyException` become a generic 500 response
+- Central `UseExceptionHandler`/Problem Details handles unexpected errors, not normal domain outcomes

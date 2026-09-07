@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Employee.DeleteEmployee;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -16,14 +14,7 @@ public class DeleteEmployeeEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(new DeleteEmployeeRequest(id), cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<Unit>.Ok       => TypedResults.NoContent(),
-        Result<Unit>.NotFound => TypedResults.NotFound(),
-        _                     => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(_ => TypedResults.NoContent());
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

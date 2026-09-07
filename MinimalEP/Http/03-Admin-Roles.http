@@ -38,7 +38,8 @@ Content-Type: application/json
   "role": "Admin"
 }
 
-### Expect: 201 Created — includes a passwordResetToken (demo only, would normally be emailed)
+### Expect: 201 Created — body: { userId, email, name, position, role, passwordResetToken }
+### (passwordResetToken is demo-only; a real system emails it instead)
 
 @adminUserId = {{createAdminAccount.response.body.userId}}
 @adminResetToken = {{createAdminAccount.response.body.passwordResetToken}}
@@ -107,7 +108,7 @@ Content-Type: application/json
   "role": "Admin"
 }
 
-### Expect: 200 Ok — user now also holds the Admin role
+### Expect: 200 Ok — body: { userId, roles: [...] } now includes Admin
 
 ### ============================================================
 ### SCENARIO: Assigning an unknown role -> 400 ValidationProblem

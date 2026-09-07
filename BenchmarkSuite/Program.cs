@@ -4,13 +4,12 @@
 
 using BenchmarkDotNet.Running;
 
-namespace BenchmarkSuite1
-{
-    internal class Program
+namespace BenchmarkSuite;
+
+  internal sealed class Program
+  {
+    static void Main()
     {
-        static void Main(string[] args)
-        {
-            var _ = BenchmarkRunner.Run(typeof(Program).Assembly);
-        }
+      var _ = BenchmarkRunner.Run(typeof(Program).Assembly);
     }
-}
+  }

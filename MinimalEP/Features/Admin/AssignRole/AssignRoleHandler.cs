@@ -8,7 +8,7 @@ using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Data.Context;
 
-public class AssignRoleHandler(
+public partial class AssignRoleHandler(
   UserManager<ApplicationUser> userManager,
   IUserContext userContext,
   ApplicationDbContext context,
@@ -70,12 +70,14 @@ public class AssignRoleHandler(
     }
 
     await transaction.CommitAsync(cancellationToken);
-    logger.LogInformation(
-      "User {TargetUserId} role changed to {Role} by {ActorUserId}.",
-      user.Id,
-      request.Role,
-      userContext.UserId);
+    RoleChanged(logger, user.Id, request.Role, userContext.UserId);
 
     return new Result<AssignRoleResponse>.Ok(new AssignRoleResponse(user.Id, [request.Role]));
   }
+
+  [LoggerMessage(
+    EventId = 1001,
+    Level = LogLevel.Information,
+    Message = "User {TargetUserId} role changed to {Role} by {ActorUserId}.")]
+  private static partial void RoleChanged(ILogger logger, Guid targetUserId, string role, Guid? actorUserId);
 }

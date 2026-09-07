@@ -1,7 +1,7 @@
-# Repository Pattern med EF Core + Dapper
+# Repository Pattern with EF Core + Dapper
 
-## Syfte
-Separation of Concerns: Dapper för läsning (snabb, ingen overhead), EF Core för skrivning (interceptor kräver change tracker).
+## Purpose
+Separation of Concerns: Dapper for reads (fast, no overhead), EF Core for writes (the interceptor requires the change tracker).
 
 ## Interface (Features/Core/)
 ```csharp
@@ -72,28 +72,28 @@ public class SqlConnectionFactory(IConfiguration configuration) : IDbConnectionF
 		=> new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
 }
 ```
-Registreras som **Singleton** — håller bara connection string.
+Registered as a **Singleton** — it only holds a connection string.
 
 ## Dapper multi-mapping (JOIN)
-Används när entiteten har navigationsegenskaper (t.ex. Workload → Customer + Employee):
+Used when the entity has navigation properties (e.g. Workload → Customer + Employee):
 ```csharp
 var result = await db.QueryAsync<Workload, Customer, Employee, Workload>(
 	sql, (w, c, e) => { w.Customer = c; w.Employee = e; return w; },
 	splitOn: "Id,Id");
 ```
 
-## DI-registrering
+## DI registration
 ```csharp
 services.AddScoped<ICustomerRepository, CustomerRepository>();
 services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 ```
 
-## Viktigt
-- `tracked = false` (default) → Dapper, ingen EF overhead
-- `tracked = true` → EF Core, krävs för Update/Delete så interceptorn kan spåra ändringar
-- Soft-delete filtreras manuellt i Dapper-queries (`WHERE Deleted IS NULL`) — EF hanterar det via `HasQueryFilter`
-- Alla Dapper-anrop använder `CommandDefinition` och förmedlar `CancellationToken`
-- Listor är bounded och använder UUID v7 keyset-pagination: default 50, max 100, plus en lookahead-rad för `NextCursor`
-- Filtrera även soft-deletade join-entiteter och välj explicita kolumner
-- Editable entities inkluderar `RowVersion` i Dapper-läsningar; update sätter klientens token som EF original value
-- Fånga `DbUpdateConcurrencyException` i handlern och returnera `Result<T>.Conflict`, vilket endpointen mappar till 409
+## Important
+- `tracked = false` (default) → Dapper, no EF overhead
+- `tracked = true` → EF Core, required for Update/Delete so the interceptor can track changes
+- Soft delete is filtered manually in Dapper queries (`WHERE Deleted IS NULL`) — EF handles it via `HasQueryFilter`
+- All Dapper calls use `CommandDefinition` and propagate the `CancellationToken`
+- Lists are bounded and use UUID v7 keyset pagination: default 50, max 100, plus a lookahead row for `NextCursor`
+- Also filter soft-deleted joined entities and select explicit columns
+- Editable entities include `RowVersion` in Dapper reads; update sets the client's token as the EF original value
+- Catch `DbUpdateConcurrencyException` in the handler and return `Result<T>.Conflict`, which the endpoint maps to 409

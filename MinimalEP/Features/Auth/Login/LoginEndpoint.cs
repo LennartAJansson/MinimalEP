@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Auth.Login;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -16,14 +14,7 @@ public class LoginEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<LoginResponse>.Ok ok    => TypedResults.Ok(ok.Value),
-        Result<LoginResponse>.NotFound => TypedResults.Unauthorized(),
-        _                              => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

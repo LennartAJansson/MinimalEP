@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Employee.UpdateEmployee;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -17,15 +15,7 @@ public class UpdateEmployeeEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request with { Id = id }, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<UpdateEmployeeResponse>.Ok ok    => TypedResults.Ok(ok.Value),
-        Result<UpdateEmployeeResponse>.NotFound => TypedResults.NotFound(),
-        Result<UpdateEmployeeResponse>.Conflict c => TypedResults.Conflict(c.Message),
-        _                                       => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

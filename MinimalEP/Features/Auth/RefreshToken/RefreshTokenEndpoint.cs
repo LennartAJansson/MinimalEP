@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Auth.RefreshToken;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -16,14 +14,7 @@ public class RefreshTokenEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<RefreshTokenResponse>.Ok ok      => TypedResults.Ok(ok.Value),
-        Result<RefreshTokenResponse>.Conflict c => TypedResults.Conflict(c.Message),
-        _                                       => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

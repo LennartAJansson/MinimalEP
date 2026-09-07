@@ -18,10 +18,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
   public DbSet<Workload> Workloads => Set<Workload>();
   public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-  protected override void OnModelCreating(ModelBuilder modelBuilder)
+  protected override void OnModelCreating(ModelBuilder builder)
   {
-    base.OnModelCreating(modelBuilder);
+    base.OnModelCreating(builder);
 
-    modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+    builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
   }
 }

@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Admin.CreateEmployeeAccount;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -16,14 +14,7 @@ public class CreateEmployeeAccountEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<CreateEmployeeAccountResponse>.Ok ok      => TypedResults.CreatedAtRoute(ok.Value, ApiRouteNames.GetEmployee, new { version = ApiVersions.V1RouteValue, id = ok.Value.UserId }),
-        Result<CreateEmployeeAccountResponse>.Conflict c => TypedResults.Conflict(c.Message),
-        _                                                => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.CreatedAtRoute(ok, ApiRouteNames.GetEmployee, new { version = ApiVersions.V1RouteValue, id = ok.UserId }));
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

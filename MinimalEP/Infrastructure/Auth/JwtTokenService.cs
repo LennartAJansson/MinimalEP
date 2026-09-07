@@ -1,5 +1,6 @@
 namespace MinimalEP.Infrastructure.Auth;
 
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -11,7 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 
-public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
+public class JwtTokenService(IOptions<JwtOptions> options, TimeProvider timeProvider) : ITokenService
 {
   private readonly JwtOptions settings = options.Value;
 
@@ -26,7 +27,7 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
       new(JwtRegisteredClaimNames.Email, user.Email!),
       new(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
       new(EmployeeClaimNames.Name, employee.Name),
-      new(EmployeeClaimNames.Age, employee.Age.ToString()),
+      new(EmployeeClaimNames.Age, employee.Age.ToString(CultureInfo.InvariantCulture)),
       new(EmployeeClaimNames.Position, employee.Position),
       .. roles.Select(r => new Claim(ClaimTypes.Role, r))
     ];
@@ -35,7 +36,7 @@ public class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
       issuer: settings.Issuer,
       audience: settings.Audience,
       claims: claims,
-      expires: DateTime.UtcNow.AddMinutes(settings.ExpiresInMinutes),
+      expires: timeProvider.GetUtcNow().AddMinutes(settings.ExpiresInMinutes).UtcDateTime,
       signingCredentials: credentials);
 
     return new JwtSecurityTokenHandler().WriteToken(token);

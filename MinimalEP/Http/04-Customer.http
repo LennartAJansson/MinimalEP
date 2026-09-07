@@ -30,21 +30,34 @@ Content-Type: application/json
   "email": "contact@acme.example"
 }
 
-### Expect: 201 Created — includes the new customer's Id
+### Expect: 201 Created — body: { id, name, email }
 
 @customerId = {{addCustomer.response.body.id}}
 
 ### ============================================================
-### SCENARIO: List all customers
+### SCENARIO: Get the customer by id to read its RowVersion
+### (RowVersion is required for the subsequent update)
+### ============================================================
+
+# @name getCustomer
+GET {{baseUrl}}/customers/{{customerId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — body: { id, name, email, rowVersion }
+
+@customerRowVersion = {{getCustomer.response.body.rowVersion}}
+
+### ============================================================
+### SCENARIO: List customers (paginated)
 ### ============================================================
 
 GET {{baseUrl}}/customers
 Authorization: Bearer {{accessToken}}
 
-### Expect: 200 Ok — list includes "Acme AB"
+### Expect: 200 Ok — body: { items: [...], nextCursor: guid|null }; includes "Acme AB"
 
 ### ============================================================
-### SCENARIO: Update the customer
+### SCENARIO: Update the customer (requires last-read RowVersion)
 ### ============================================================
 
 PUT {{baseUrl}}/customers/{{customerId}}
@@ -52,11 +65,13 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
+  "id": "{{customerId}}",
   "name": "Acme Corporation",
-  "email": "info@acme.example"
+  "email": "info@acme.example",
+  "rowVersion": "{{customerRowVersion}}"
 }
 
-### Expect: 200 Ok — updated Name/Email reflected
+### Expect: 200 Ok — updated Name/Email reflected; stale RowVersion -> 409 Conflict
 
 ### ============================================================
 ### SCENARIO: Update a non-existent customer -> 404
@@ -67,8 +82,10 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
+  "id": "00000000-0000-0000-0000-000000000000",
   "name": "Ghost Corp",
-  "email": "ghost@example.com"
+  "email": "ghost@example.com",
+  "rowVersion": "AAAAAAAAB9E="
 }
 
 ### Expect: 404 NotFound

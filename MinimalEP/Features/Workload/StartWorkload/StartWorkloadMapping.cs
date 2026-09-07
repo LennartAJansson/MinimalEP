@@ -9,15 +9,7 @@ public static class StartWorkloadMapping
     // EmployeeId comes from IUserContext, never from client input (OWASP API1: broken
     // object level authorization / "never trust client-supplied identity").
     public Workload ToEntity(Guid employeeId)
-    {
-      return new Workload
-      {
-        CustomerId = request.CustomerId,
-        EmployeeId = employeeId,
-        Start = request.Start,
-        Comments = request.Comments
-      };
-    }
+      => Workload.StartNew(request.CustomerId, employeeId, request.Start, request.Comments);
   }
 
   extension(Workload workload)

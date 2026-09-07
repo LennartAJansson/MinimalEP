@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Employee.GetEmployees;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -17,12 +15,7 @@ public class GetEmployeesEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(new GetEmployeesRequest(pageSize, after), cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<GetEmployeesResponse>.Ok ok => TypedResults.Ok(ok.Value),
-        _ => throw new UnreachableException()
-      };
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

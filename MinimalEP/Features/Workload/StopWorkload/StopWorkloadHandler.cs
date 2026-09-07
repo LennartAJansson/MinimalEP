@@ -19,25 +19,26 @@ public class StopWorkloadHandler(IWorkloadRepository repository, IUserContext us
     if (!isPrivileged && workload.EmployeeId != userContext.UserId)
       return new Result<StopWorkloadResponse>.NotFound();
 
-    if (workload.Stop.HasValue)
-      return new Result<StopWorkloadResponse>.Conflict("Workload is already stopped.");
-
-    if (request.Stop <= workload.Start)
-      return new Result<StopWorkloadResponse>.Conflict("Stop time must be after Start.");
-
     if (request.RowVersion.Length == 0)
       return new Result<StopWorkloadResponse>.Conflict("A row version is required.");
 
     repository.SetOriginalRowVersion(workload, request.RowVersion);
-    workload.Stop = request.Stop;
     try
     {
+      workload.StopAt(request.Stop);
       await repository.SaveChangesAsync(cancellationToken);
+    }
+    catch (InvalidOperationException exception)
+    {
+      return new Result<StopWorkloadResponse>.Conflict(exception.Message);
     }
     catch (DbUpdateConcurrencyException)
     {
       return new Result<StopWorkloadResponse>.Conflict("The workload was changed by another request. Reload it and try again.");
     }
+
+    if (workload.Stop is null)
+      return new Result<StopWorkloadResponse>.Conflict("Workload is already stopped.");
 
     return new Result<StopWorkloadResponse>.Ok(new StopWorkloadResponse(workload.Id, workload.Start, workload.Stop.Value, workload.RowVersion));
   }

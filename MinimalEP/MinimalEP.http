@@ -11,7 +11,14 @@
 ### automatically on startup if they do not already exist.
 ### ============================================================
 
-GET {{MinimalEP_HostAddress}}/weatherforecast/
+### Liveness probe (anonymous, process-only)
+GET {{MinimalEP_HostAddress}}/health/live
+Accept: application/json
+
+###
+
+### Readiness probe (anonymous, checks SQL Server)
+GET {{MinimalEP_HostAddress}}/health/ready
 Accept: application/json
 
 ###

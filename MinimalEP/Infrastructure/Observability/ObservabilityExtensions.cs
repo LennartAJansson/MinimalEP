@@ -31,11 +31,14 @@ public static class ObservabilityExtensions
         {
           metrics
             .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
+            .AddHttpClientInstrumentation()
+            .AddMeter(RefreshTokenMaintenanceMetrics.MeterName);
 
           if (exportTelemetry)
             metrics.AddOtlpExporter();
         });
+
+      services.AddSingleton<RefreshTokenMaintenanceMetrics>();
 
       return services;
     }

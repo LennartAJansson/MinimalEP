@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Employee.Me;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 
 public class GetMeEndpoint : IEndpoint
@@ -14,14 +12,7 @@ public class GetMeEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(new GetMeRequest(), cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<GetMeResponse>.Ok ok    => TypedResults.Ok(ok.Value),
-        Result<GetMeResponse>.NotFound => TypedResults.NotFound(),
-        _                              => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).WithName(ApiRouteNames.GetMe);
   }
 }

@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Customer.DeleteCustomer;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -17,14 +15,7 @@ public class DeleteCustomerEndpoint
     {
       var result = await handler.HandleAsync(new DeleteCustomerRequest(id), cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<Unit>.Ok       => TypedResults.NoContent(),
-        Result<Unit>.NotFound => TypedResults.NotFound(),
-        _                     => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(_ => TypedResults.NoContent());
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

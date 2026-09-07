@@ -14,12 +14,13 @@ using MinimalEP.Domain.Model;
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
-public class RefreshTokenHandler(
+public partial class RefreshTokenHandler(
   UserManager<ApplicationUser> userManager,
   IEmployeeRepository employeeRepository,
   IRefreshTokenRepository refreshTokenRepository,
   ITokenService tokenService,
   IOptions<JwtOptions> options,
+  TimeProvider timeProvider,
   ILogger<RefreshTokenHandler> logger)
   : IRequestHandler<RefreshTokenRequest, Result<RefreshTokenResponse>>
 {
@@ -76,10 +77,12 @@ public class RefreshTokenHandler(
     if (storedToken is null)
       return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
 
-    if (storedToken.UserId != user.Id || !storedToken.IsActive)
+    var now = timeProvider.GetUtcNow();
+
+    if (storedToken.UserId != user.Id || !storedToken.IsActiveAt(now))
     {
-      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, DateTimeOffset.UtcNow, cancellationToken);
-      logger.LogWarning("Refresh-token reuse detected for family {TokenFamilyId}; the family was revoked.", storedToken.FamilyId);
+      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, now, cancellationToken);
+      RefreshTokenReuseDetected(logger, storedToken.FamilyId);
       return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
     }
 
@@ -87,7 +90,7 @@ public class RefreshTokenHandler(
     var newAccessToken = tokenService.GenerateAccessToken(user, employee, roles);
     var newRefreshToken = tokenService.GenerateRefreshToken();
 
-    var expiresAt = DateTimeOffset.UtcNow.AddDays(jwtSettings.RefreshTokenExpiresInDays);
+    var expiresAt = now.AddDays(jwtSettings.RefreshTokenExpiresInDays);
 
     var newToken = new RefreshToken
     {
@@ -99,7 +102,7 @@ public class RefreshTokenHandler(
     };
 
     // Revoke the old token and link it to its replacement
-    storedToken.RevokedAt = DateTimeOffset.UtcNow;
+    storedToken.RevokedAt = now;
     storedToken.ReplacedByTokenId = newToken.Id;
 
     await refreshTokenRepository.AddAsync(newToken, cancellationToken);
@@ -109,8 +112,8 @@ public class RefreshTokenHandler(
     }
     catch (DbUpdateConcurrencyException)
     {
-      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, DateTimeOffset.UtcNow, cancellationToken);
-      logger.LogWarning("Concurrent refresh-token rotation detected for family {TokenFamilyId}; the family was revoked.", storedToken.FamilyId);
+      await refreshTokenRepository.RevokeFamilyAsync(storedToken.FamilyId, now, cancellationToken);
+      ConcurrentRefreshTokenRotationDetected(logger, storedToken.FamilyId);
       return new Result<RefreshTokenResponse>.Conflict("Invalid or expired refresh token.");
     }
 
@@ -119,6 +122,18 @@ public class RefreshTokenHandler(
       newRefreshToken,
       expiresAt));
   }
+
+  [LoggerMessage(
+    EventId = 4001,
+    Level = LogLevel.Warning,
+    Message = "Refresh-token reuse detected for family {TokenFamilyId}; the family was revoked.")]
+  private static partial void RefreshTokenReuseDetected(ILogger logger, Guid tokenFamilyId);
+
+  [LoggerMessage(
+    EventId = 4002,
+    Level = LogLevel.Warning,
+    Message = "Concurrent refresh-token rotation detected for family {TokenFamilyId}; the family was revoked.")]
+  private static partial void ConcurrentRefreshTokenRotationDetected(ILogger logger, Guid tokenFamilyId);
 
   private static string HashToken(string token)
   {

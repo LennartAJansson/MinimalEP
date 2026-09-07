@@ -1,7 +1,7 @@
 # ASP.NET Core Identity + JWT + Refresh Token
 
-## Syfte
-Autentisering med JWT och refresh tokens. `ApplicationUser.Id == Employee.Id` by design — en person, ett Guid.
+## Purpose
+Authentication with JWT and refresh tokens. `ApplicationUser.Id == Employee.Id` by design — one person, one Guid.
 
 ## ApplicationUser
 ```csharp
@@ -9,16 +9,16 @@ public class ApplicationUser : IdentityUser<Guid>
 {
 }
 ```
-Inga refresh-token-fält på `ApplicationUser` — se separat `RefreshToken`-entitet nedan.
-Detta stödjer flera samtidiga sessioner/enheter per användare, revocation av ett enskilt
-token, och reuse-detection (ett redan roterat/återkallat token som presenteras igen indikerar stöld).
+No refresh-token fields on `ApplicationUser` — see the separate `RefreshToken` entity below.
+This supports multiple concurrent sessions/devices per user, revocation of a single
+token, and reuse detection (an already rotated/revoked token presented again indicates theft).
 
-## RefreshToken — egen entitet/tabell
+## RefreshToken — dedicated entity/table
 ```csharp
 public class RefreshToken : BaseEntity
 {
 	public required Guid UserId { get; set; }
-	public required string TokenHash { get; set; }   // SHA-256, aldrig plaintext
+	public required string TokenHash { get; set; }   // SHA-256, never plaintext
 	public required DateTimeOffset ExpiresAt { get; set; }
 	public DateTimeOffset? RevokedAt { get; set; }
 	public Guid? ReplacedByTokenId { get; set; }
@@ -28,9 +28,9 @@ public class RefreshToken : BaseEntity
 	public bool IsActive => RevokedAt is null && ExpiresAt > DateTimeOffset.UtcNow;
 }
 ```
-`IRefreshTokenRepository` följer samma mönster som övriga repositories (`GetActiveByTokenHashAsync`,
-`AddAsync`, `SaveChangesAsync`). Läs alltid tracked (EF Core) eftersom rotation kräver en uppdatering
-(`RevokedAt`/`ReplacedByTokenId`) av den befintliga posten.
+`IRefreshTokenRepository` follows the same pattern as the other repositories (`GetActiveByTokenHashAsync`,
+`AddAsync`, `SaveChangesAsync`). Always read tracked (EF Core), because rotation requires an update
+(`RevokedAt`/`ReplacedByTokenId`) of the existing row.
 
 ## DbContext
 ```csharp
@@ -38,24 +38,24 @@ public class ApplicationDbContext
 	: IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 ```
 
-## Employee.Email — spegling av ApplicationUser.Email
-`Employee.Email` speglar `ApplicationUser.Email` (satt vid registrering, se `RegisterHandler`).
-Detta gör Employee-entiteten självständigt läsbar (t.ex. i rapporter/listor) utan join mot `AspNetUsers`,
-utan att göra `AspNetUsers` till källan för domändata. `ApplicationUser.Email` förblir källan vid inloggning.
+## Employee.Email — mirror of ApplicationUser.Email
+`Employee.Email` mirrors `ApplicationUser.Email` (set at registration, see `RegisterHandler`).
+This makes the Employee entity independently readable (e.g. in reports/lists) without joining `AspNetUsers`,
+without making `AspNetUsers` the source of domain data. `ApplicationUser.Email` remains the source of truth for login.
 
-## JWT-claims
-| Claim     | Värde |
+## JWT claims
+| Claim     | Value |
 |-----------|-------|
-| `sub`     | `user.Id` — primär identitet, används av interceptorn och `IUserContext` |
-| `email`   | `user.Email` (från AspNetUsers — källan vid inloggning) |
-| `jti`     | `Guid.CreateVersion7()` — token-id för möjlig revocation |
-| `name`    | `employee.Name` — beräknad property (`$"{GivenName} {Surname}"`), inte persisterad |
+| `sub`     | `user.Id` — primary identity, used by the interceptor and `IUserContext` |
+| `email`   | `user.Email` (from AspNetUsers — the source of truth for login) |
+| `jti`     | `Guid.CreateVersion7()` — token id for possible revocation |
+| `name`    | `employee.Name` — computed property (`$"{GivenName} {Surname}"`), not persisted |
 | `age`     | `employee.Age` |
 | `position`| `employee.Position` |
-| roller    | `UserManager.GetRolesAsync()` |
+| roles     | `UserManager.GetRolesAsync()` |
 
-`ITokenService.GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles)` tar
-både `ApplicationUser` och `Employee` eftersom claims hämtas från båda entiteterna.
+`ITokenService.GenerateAccessToken(ApplicationUser user, Employee employee, IList<string> roles)` takes
+both `ApplicationUser` and `Employee` because claims come from both entities.
 
 ## IUserContext
 ```csharp
@@ -65,22 +65,22 @@ public interface IUserContext
 	bool IsInRole(string role);
 }
 ```
-Löser `sub`-claim från `IHttpContextAccessor`. Används av interceptorn och handlers — ingen separat `EmployeeId`-claim behövs. `IsInRole` används för resource-baserad auktorisering (t.ex. workload-ownership, `/me`-scoping) utöver policy-baserad routning.
+Resolves the `sub` claim from `IHttpContextAccessor`. Used by the interceptor and handlers — no separate `EmployeeId` claim is needed. `IsInRole` is used for resource-based authorization (e.g. workload ownership, `/me` scoping) in addition to policy-based routing.
 
-## Viktigt: `MapInboundClaims = false` — konsekvent claim-typ överallt
-`JwtBearerOptions.MapInboundClaims` är `false` som default i ASP.NET Core, så en JWT med `sub`-claim
-surfar som `JwtRegisteredClaimNames.Sub` i `HttpContext.User` (inte `ClaimTypes.NameIdentifier`).
-`JwtSecurityTokenHandler.ValidateToken()` (använd manuellt, t.ex. vid refresh-flödet) har däremot
-`MapInboundClaims = true` som default och mappar om `sub` till `ClaimTypes.NameIdentifier`.
+## Important: `MapInboundClaims = false` — consistent claim type everywhere
+`JwtBearerOptions.MapInboundClaims` defaults to `false` in ASP.NET Core, so a JWT with a `sub` claim
+surfaces as `JwtRegisteredClaimNames.Sub` in `HttpContext.User` (not `ClaimTypes.NameIdentifier`).
+`JwtSecurityTokenHandler.ValidateToken()` (used manually, e.g. in the refresh flow), on the other hand, defaults
+`MapInboundClaims` to `true` and remaps `sub` to `ClaimTypes.NameIdentifier`.
 
-Detta ger en tyst inkonsekvens om man inte är explicit. Lös det genom att:
-1. Sätta `options.MapInboundClaims = false;` i `AddJwtBearer(...)`.
-2. Sätta `new JwtSecurityTokenHandler { MapInboundClaims = false }` när tokens valideras manuellt
-   (t.ex. i `RefreshTokenHandler` vid validering av det utgångna access-tokenet).
-3. Läsa claim som `principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value`
-   i alla konsumenter (`IUserContext`, audit-interceptorn, refresh-handlern) som fallback-skydd.
+This creates a silent inconsistency unless you are explicit. Resolve it by:
+1. Setting `options.MapInboundClaims = false;` in `AddJwtBearer(...)`.
+2. Setting `new JwtSecurityTokenHandler { MapInboundClaims = false }` when validating tokens manually
+	 (e.g. in `RefreshTokenHandler` when validating the expired access token).
+3. Reading the claim as `principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value`
+	 in all consumers (`IUserContext`, the audit interceptor, the refresh handler) as a fallback safeguard.
 
-## RegisterHandler — samma Guid för User och Employee
+## RegisterHandler — same Guid for User and Employee
 ```csharp
 var userId = Guid.CreateVersion7();
 var user   = new ApplicationUser { Id = userId, UserName = ..., Email = ... };
@@ -88,38 +88,38 @@ var user   = new ApplicationUser { Id = userId, UserName = ..., Email = ... };
 await userManager.CreateAsync(user, request.Password);
 
 var employee = new Employee { Id = userId, ... };
-employee.CreatedBy = userId;   // explicit — inget JWT finns vid registrering
+employee.CreatedBy = userId;   // explicit — no JWT exists at registration
 
 await employeeRepository.AddAsync(employee, ct);
 await employeeRepository.SaveChangesAsync(ct);
 ```
 
-## Token-generering (ITokenService)
+## Token generation (ITokenService)
 ```csharp
 string accessToken  = tokenService.GenerateAccessToken(user, employee, roles);
 string refreshToken = tokenService.GenerateRefreshToken();
 ```
-Spara refresh-tokenet **hashat** (SHA-256) som en ny `RefreshToken`-rad via `IRefreshTokenRepository`
-— inte plaintext, och inte som kolumn på `ApplicationUser`.
+Store the refresh token **hashed** (SHA-256) as a new `RefreshToken` row via `IRefreshTokenRepository`
+— not plaintext, and not as a column on `ApplicationUser`.
 
 ## Refresh token — rotation
-1. Validera det utgångna access-tokenet (`ValidateLifetime = false`) för att hämta `sub`
-2. Slå upp `RefreshToken`-raden via hash av det inskickade refresh-tokenet och kontrollera `IsActive`
-3. Om ett tidigare token återanvänds: återkalla hela tokenfamiljen och logga säkerhetshändelsen utan rå token eller e-postadress
-4. Utfärda nytt access token + nytt refresh token i samma familj
-5. Sätt `RevokedAt` + `ReplacedByTokenId` på den gamla raden, lägg till den nya raden och spara atomärt
-6. `RowVersion` skyddar parallell rotation; hantera `DbUpdateConcurrencyException` som ogiltigt/återanvänt token
+1. Validate the expired access token (`ValidateLifetime = false`) to extract `sub`
+2. Look up the `RefreshToken` row via the hash of the submitted refresh token and check `IsActive`
+3. If a previous token is reused: revoke the entire token family and log the security event without raw tokens or email addresses
+4. Issue a new access token + new refresh token in the same family
+5. Set `RevokedAt` + `ReplacedByTokenId` on the old row, add the new row and save atomically
+6. `RowVersion` protects against parallel rotation; handle `DbUpdateConcurrencyException` as an invalid/reused token
 
-## Bootstrap, lockout och rate limiting
-- Publik registrering tilldelar alltid endast `User`.
-- SuperAdmin skapas bara av explicit `BootstrapAdminOptions`, som är disabled som default, startupvaliderad och tillåten endast i en tom installation.
-- Konto, roll och Employee skapas inom en explicit transaktion; kontrollera varje `IdentityResult` och rulla tillbaka vid fel.
-- Login använder Identity lockout (`lockoutOnFailure`) och auth-endpoints använder `RateLimitPolicies.Authentication`.
-- Skydda sista SuperAdmin och förbjud självdegradering.
+## Bootstrap, lockout and rate limiting
+- Public registration always assigns only `User`.
+- SuperAdmin is created only by explicit `BootstrapAdminOptions`, which is disabled by default, startup-validated and allowed only against an empty installation.
+- Account, role and Employee are created within an explicit transaction; check every `IdentityResult` and roll back on failure.
+- Login uses Identity lockout (`lockoutOnFailure`) and auth endpoints use `RateLimitPolicies.Authentication`.
+- Protect the last SuperAdmin and forbid self-demotion.
 
-## Auth-endpoints — AllowAnonymous
+## Auth endpoints — AllowAnonymous
 ```csharp
 return builder.MapPost("/auth/register", ...)
 	.AllowAnonymous();
 ```
-Övrig routegrupp skyddas av `.RequireAuthorization()` — AllowAnonymous överstyr per endpoint.
+The rest of the route group is protected by `.RequireAuthorization()` — AllowAnonymous overrides it per endpoint.

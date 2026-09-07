@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Admin.AssignRole;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -17,15 +15,7 @@ public class AssignRoleEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request with { UserId = userId }, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<AssignRoleResponse>.Ok ok       => TypedResults.Ok(ok.Value),
-        Result<AssignRoleResponse>.NotFound    => TypedResults.NotFound(),
-        Result<AssignRoleResponse>.Conflict c  => TypedResults.Conflict(c.Message),
-        _                                      => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }

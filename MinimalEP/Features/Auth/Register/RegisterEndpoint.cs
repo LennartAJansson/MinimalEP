@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Auth.Register;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -16,14 +14,7 @@ public class RegisterEndpoint : IEndpoint
     {
       var result = await handler.HandleAsync(request, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<RegisterResponse>.Ok ok      => TypedResults.CreatedAtRoute(ok.Value, ApiRouteNames.GetMe, new { version = ApiVersions.V1RouteValue }),
-        Result<RegisterResponse>.Conflict c => TypedResults.Conflict(c.Message),
-        _                                   => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.CreatedAtRoute(ok, ApiRouteNames.GetMe, new { version = ApiVersions.V1RouteValue }));
     }).AllowAnonymous().RequireRateLimiting(RateLimitPolicies.Authentication);
   }
 }

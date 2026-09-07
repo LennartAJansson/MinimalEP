@@ -2,7 +2,9 @@
 @baseUrl = {{MinimalEP_HostAddress}}/api/v1
 
 ### ============================================================
-### SCENARIO: Register the first user (becomes SuperAdmin+Admin+User)
+### SCENARIO: Register the first user
+### (Public registration always assigns only the User role; a SuperAdmin
+###  is created separately via explicit bootstrap config, not via register.)
 ### ============================================================
 
 # @name registerFirstUser
@@ -22,7 +24,7 @@ Content-Type: application/json
   "city": "Stockholm"
 }
 
-### Expect: 201 Created — first registered user is granted SuperAdmin + Admin + User
+### Expect: 201 Created — body: { userId, email, name, position }; role is always User
 
 ### ============================================================
 ### SCENARIO: Registering the same email again -> 409 Conflict
@@ -59,13 +61,14 @@ Content-Type: application/json
   "password": "Sup3rSecret!"
 }
 
-### Expect: 200 Ok — { accessToken, refreshToken, expiry }
+### Expect: 200 Ok — body: { accessToken, refreshToken, expiry }
 
 @superAdminAccessToken = {{loginSuperAdmin.response.body.accessToken}}
 @superAdminRefreshToken = {{loginSuperAdmin.response.body.refreshToken}}
 
 ### ============================================================
-### SCENARIO: Login with wrong password -> 401/409 depending on handler
+### SCENARIO: Login with wrong password -> 404 NotFound (intentionally
+### indistinguishable from an unknown account; drives Identity lockout)
 ### ============================================================
 
 POST {{baseUrl}}/auth/login
@@ -76,7 +79,7 @@ Content-Type: application/json
   "password": "WrongPassword!"
 }
 
-### Expect: 401 Unauthorized — invalid credentials
+### Expect: 404 NotFound — invalid credentials (same response as unknown user)
 
 ### ============================================================
 ### SCENARIO: Refresh the access token using the refresh token
@@ -92,6 +95,7 @@ Content-Type: application/json
 }
 
 ### Expect: 200 Ok — new accessToken + refreshToken pair (rotation)
+### body: { accessToken, refreshToken, expiry }
 
 @rotatedAccessToken = {{refreshTokens.response.body.accessToken}}
 @rotatedRefreshToken = {{refreshTokens.response.body.refreshToken}}
@@ -108,7 +112,7 @@ Content-Type: application/json
   "refreshToken": "{{superAdminRefreshToken}}"
 }
 
-### Expect: Conflict — reused/revoked refresh token detected
+### Expect: 409 Conflict — reused/revoked refresh token detected
 
 ### ============================================================
 ### SCENARIO: Calling a protected endpoint WITHOUT a token -> 401
@@ -125,4 +129,4 @@ GET {{baseUrl}}/employees
 GET {{baseUrl}}/employees
 Authorization: Bearer {{rotatedAccessToken}}
 
-### Expect: 200 Ok — list of employees
+### Expect: 200 Ok — body: { items: [...], nextCursor: guid|null }

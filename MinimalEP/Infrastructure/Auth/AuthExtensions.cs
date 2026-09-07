@@ -25,6 +25,11 @@ public static class AuthExtensions
         .ValidateDataAnnotations()
         .ValidateOnStart();
 
+      services.AddOptions<RefreshTokenMaintenanceOptions>()
+        .Bind(configuration.GetRequiredSection(RefreshTokenMaintenanceOptions.SectionName))
+        .ValidateDataAnnotations()
+        .ValidateOnStart();
+
       services.AddSingleton<IValidateOptions<BootstrapAdminOptions>, BootstrapAdminOptionsValidator>();
       services.AddOptions<BootstrapAdminOptions>()
         .Bind(configuration.GetRequiredSection(BootstrapAdminOptions.SectionName))
@@ -92,6 +97,8 @@ public static class AuthExtensions
             }));
       });
 
+      services.AddSingleton(TimeProvider.System);
+      services.AddHostedService<RefreshTokenMaintenanceService>();
       services.AddScoped<ITokenService, JwtTokenService>();
 
       return services;

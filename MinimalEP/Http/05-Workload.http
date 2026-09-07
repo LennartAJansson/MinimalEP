@@ -45,6 +45,7 @@ Content-Type: application/json
 }
 
 ### Expect: 201 Created — EmployeeId taken from the caller's token, Stop is null
+### body: { id, customerId, employeeId, start, comments }
 
 @workloadId = {{startWorkload.response.body.id}}
 
@@ -66,7 +67,19 @@ Content-Type: application/json
 ### Expect: 409 Conflict — an open workload already exists for this employee
 
 ### ============================================================
-### SCENARIO: Stop the open workload (punch out)
+### SCENARIO: Read the open workload to obtain its current RowVersion
+### ============================================================
+
+# @name getOpenWorkload
+GET {{baseUrl}}/workloads/{{workloadId}}
+Authorization: Bearer {{accessToken}}
+
+### Expect: 200 Ok — body includes rowVersion
+
+@openWorkloadRowVersion = {{getOpenWorkload.response.body.rowVersion}}
+
+### ============================================================
+### SCENARIO: Stop the open workload (punch out) — requires RowVersion
 ### ============================================================
 
 PATCH {{baseUrl}}/workloads/{{workloadId}}/stop
@@ -75,22 +88,30 @@ Content-Type: application/json
 
 {
   "id": "{{workloadId}}",
-  "stop": "2025-01-01T17:00:00+00:00"
+  "stop": "2025-01-01T17:00:00+00:00",
+  "rowVersion": "{{openWorkloadRowVersion}}"
 }
 
-### Expect: 200 Ok — Stop is now set
+### Expect: 200 Ok — Stop is now set; body: { id, start, stop, rowVersion }
 
 ### ============================================================
 ### SCENARIO: Stopping an already-stopped workload again -> 409 Conflict
 ### ============================================================
 
+# @name getStoppedWorkload
+GET {{baseUrl}}/workloads/{{workloadId}}
+Authorization: Bearer {{accessToken}}
+
+@stoppedRowVersion = {{getStoppedWorkload.response.body.rowVersion}}
+
 PATCH {{baseUrl}}/workloads/{{workloadId}}/stop
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
   "id": "{{workloadId}}",
-  "stop": "2025-01-01T18:00:00+00:00"
+  "stop": "2025-01-01T18:00:00+00:00",
+  "rowVersion": "{{stoppedRowVersion}}"
 }
 
 ### Expect: 409 Conflict — workload is already stopped
@@ -105,7 +126,8 @@ Content-Type: application/json
 
 {
   "id": "00000000-0000-0000-0000-000000000000",
-  "stop": "2025-01-01T18:00:00+00:00"
+  "stop": "2025-01-01T18:00:00+00:00",
+  "rowVersion": "AAAAAAAAB9E="
 }
 
 ### Expect: 404 NotFound
@@ -130,8 +152,16 @@ Content-Type: application/json
 @secondWorkloadId = {{startSecondWorkload.response.body.id}}
 
 ### ============================================================
-### SCENARIO: Update a workload's details directly (full replace)
+### SCENARIO: Update a workload's details (full replace of mutable fields)
+### NOTE: Stop cannot be changed here — only Start and Comments.
+### Read it first to obtain the current RowVersion.
 ### ============================================================
+
+# @name getSecondWorkload
+GET {{baseUrl}}/workloads/{{secondWorkloadId}}
+Authorization: Bearer {{accessToken}}
+
+@secondRowVersion = {{getSecondWorkload.response.body.rowVersion}}
 
 PUT {{baseUrl}}/workloads/{{secondWorkloadId}}
 Authorization: Bearer {{accessToken}}
@@ -140,20 +170,20 @@ Content-Type: application/json
 {
   "id": "{{secondWorkloadId}}",
   "start": "2025-01-02T08:30:00+00:00",
-  "stop": "2025-01-02T16:30:00+00:00",
-  "comments": "Adjusted after review"
+  "comments": "Adjusted after review",
+  "rowVersion": "{{secondRowVersion}}"
 }
 
-### Expect: 200 Ok — updated Start/Stop/Comments reflected
+### Expect: 200 Ok — updated Start/Comments reflected; stale RowVersion -> 409 Conflict
 
 ### ============================================================
-### SCENARIO: List workloads filtered by customer
+### SCENARIO: List workloads filtered by customer (paginated)
 ### ============================================================
 
 GET {{baseUrl}}/workloads?customerId={{customerId}}
 Authorization: Bearer {{accessToken}}
 
-### Expect: 200 Ok — both workloads for this customer are returned
+### Expect: 200 Ok — body: { items: [...], nextCursor: guid|null }
 
 ### ============================================================
 ### SCENARIO: Delete a workload

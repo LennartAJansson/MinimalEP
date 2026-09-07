@@ -2,11 +2,12 @@ namespace MinimalEP.Tests.Authorization;
 
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 using MinimalEP.Domain.Core;
 using MinimalEP.Tests.Infrastructure;
 
-[Collection(IntegrationCollection.Name)]
+[Collection(IntegrationTestFixture.Name)]
 public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory)
 {
   public static TheoryData<string, string?, HttpStatusCode> Cases => new()
@@ -21,15 +22,15 @@ public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory
     { "/api/v1/me", Roles.User, HttpStatusCode.NotFound }
   };
 
-  public static TheoryData<HttpMethod, string> RestrictedWrites => new()
+  public static TheoryData<string, string> RestrictedWrites => new()
   {
-    { HttpMethod.Post, "/api/v1/customers" },
-    { HttpMethod.Put, $"/api/v1/customers/{Guid.NewGuid()}" },
-    { HttpMethod.Delete, $"/api/v1/customers/{Guid.NewGuid()}" },
-    { HttpMethod.Put, $"/api/v1/employees/{Guid.NewGuid()}" },
-    { HttpMethod.Delete, $"/api/v1/employees/{Guid.NewGuid()}" },
-    { HttpMethod.Post, "/api/v1/admin/employees" },
-    { HttpMethod.Put, $"/api/v1/admin/users/{Guid.NewGuid()}/role" }
+    { nameof(HttpMethod.Post), "/api/v1/customers" },
+    { nameof(HttpMethod.Put), $"/api/v1/customers/{Guid.NewGuid()}" },
+    { nameof(HttpMethod.Delete), $"/api/v1/customers/{Guid.NewGuid()}" },
+    { nameof(HttpMethod.Put), $"/api/v1/employees/{Guid.NewGuid()}" },
+    { nameof(HttpMethod.Delete), $"/api/v1/employees/{Guid.NewGuid()}" },
+    { nameof(HttpMethod.Post), "/api/v1/admin/employees" },
+    { nameof(HttpMethod.Put), $"/api/v1/admin/users/{Guid.NewGuid()}/role" }
   };
 
   [Theory]
@@ -37,8 +38,8 @@ public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory
   public async Task Endpoint_enforces_expected_access(string path, string? role, HttpStatusCode expectedStatus)
   {
     using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
-    if (role is not null)
-      client.DefaultRequestHeaders.Add(TestAuthHandler.RoleHeader, role);
+    if (role is { } requestedRole)
+      client.DefaultRequestHeaders.Add(TestAuthHandler.RoleHeader, requestedRole);
 
     using var response = await client.GetAsync(path, CancellationToken.None);
 
@@ -47,11 +48,11 @@ public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory
 
   [Theory]
   [MemberData(nameof(RestrictedWrites))]
-  public async Task Administrative_write_endpoints_forbid_plain_users(HttpMethod method, string path)
+  public async Task Administrative_write_endpoints_forbid_plain_users(string methodName, string path)
   {
     using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
     client.DefaultRequestHeaders.Add(TestAuthHandler.RoleHeader, Roles.User);
-    using var request = new HttpRequestMessage(method, path);
+    using var request = new HttpRequestMessage(new HttpMethod(methodName), path);
 
     using var response = await client.SendAsync(request, CancellationToken.None);
 
@@ -84,6 +85,41 @@ public sealed class AuthorizationMatrixTests(MinimalEpApplicationFactory factory
 
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     Assert.Matches("^https://localhost/api/v1/customers/[0-9a-f-]+$", response.Headers.Location?.ToString());
+  }
+
+  [Fact]
+  public async Task Invalid_login_returns_standardized_unauthorized_problem()
+  {
+    using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+
+    using var response = await client.PostAsJsonAsync(
+      "/api/v1/auth/login",
+      new { Email = "missing@example.test", Password = "InvalidPassword1!" },
+      CancellationToken.None);
+
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+    using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
+    Assert.Equal("unauthorized", body.RootElement.GetProperty("code").GetString());
+    Assert.Equal(401, body.RootElement.GetProperty("status").GetInt32());
+  }
+
+  [Fact]
+  public async Task Validation_filter_returns_standardized_problem_code()
+  {
+    using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+    client.DefaultRequestHeaders.Add(TestAuthHandler.RoleHeader, Roles.Admin);
+
+    using var response = await client.PostAsJsonAsync(
+      "/api/v1/customers",
+      new { Name = "", Email = "not-an-email" },
+      CancellationToken.None);
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
+    Assert.Equal("validation_failed", body.RootElement.GetProperty("code").GetString());
+    Assert.Equal(400, body.RootElement.GetProperty("status").GetInt32());
   }
 
   [Fact]

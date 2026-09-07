@@ -38,3 +38,16 @@ indent_size = 2
 [*.{json,jsonc,md,http}]
 indent_style = space
 indent_size = 2
+
+[*.cs]
+# C# 14 extension blocks currently trigger CA1708 false positives due generated member naming.
+dotnet_diagnostic.CA1708.severity = none
+
+[MinimalEP.Tests/**/*.cs]
+# Test names with underscores are intentional for readability.
+dotnet_diagnostic.CA1707.severity = none
+
+[MinimalEP/Infrastructure/Data/Migrations/*.cs]
+# EF Core migrations are generated artifacts; avoid noisy perf suggestions there.
+dotnet_diagnostic.CA1825.severity = none
+dotnet_diagnostic.CA1861.severity = none

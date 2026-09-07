@@ -25,7 +25,9 @@ public sealed class MinimalEpApplicationFactory : WebApplicationFactory<Program>
       .UseSetting("Jwt:RefreshTokenExpiresInDays", "1")
       .UseSetting("Cors:AllowedOrigins:0", "http://localhost:4200")
       .UseSetting("BootstrapAdmin:Enabled", "false")
-      .UseSetting("Database:ApplyMigrationsOnStartup", "true");
+      .UseSetting("Database:ApplyMigrationsOnStartup", "true")
+      .UseSetting("RefreshTokenMaintenance:RetentionDays", "30")
+      .UseSetting("RefreshTokenMaintenance:CleanupIntervalMinutes", "60");
     builder.ConfigureTestServices(services =>
     {
       services.AddAuthentication(options =>

@@ -1,7 +1,5 @@
 namespace MinimalEP.Features.Customer.UpdateCustomer;
 
-using System.Diagnostics;
-
 using MinimalEP.Features.Core;
 using MinimalEP.Infrastructure.Auth;
 
@@ -18,15 +16,7 @@ public class UpdateCustomerEndpoint
     {
       var result = await handler.HandleAsync(request with { Id = id }, cancellationToken);
 
-      IResult httpResult = result switch
-      {
-        Result<UpdateCustomerResponse>.Ok ok    => TypedResults.Ok(ok.Value),
-        Result<UpdateCustomerResponse>.NotFound => TypedResults.NotFound(),
-        Result<UpdateCustomerResponse>.Conflict c => TypedResults.Conflict(c.Message),
-        _                                       => throw new UnreachableException()
-      };
-
-      return httpResult;
+      return result.ToHttpResult(ok => TypedResults.Ok(ok));
     }).RequireAuthorization(AuthorizationPolicies.AdminOrAbove);
   }
 }
